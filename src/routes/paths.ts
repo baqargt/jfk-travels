@@ -1,0 +1,38 @@
+export const PATHS = {
+  login: "/login",
+  dashboard: "/dashboard",
+  booking: {
+    root: "/booking",
+    flights: "/booking/flights",
+    hotels: "/booking/hotels",
+    insurance: "/booking/insurance",
+    transfers: "/booking/transfers",
+    holidays: "/booking/holidays",
+    sightseeing: "/booking/sightseeing",
+    fixDeparture: "/booking/fix-departure",
+    a2a: "/booking/a-to-a",
+  },
+  company: {
+    profile: "/company/profile",
+    subCompanies: "/company/sub-companies",
+    createSubCompany: "/company/sub-companies/new",
+  },
+  users: "/users",
+  createUser: "/users/new",
+  customers: "/customers",
+  createCustomer: "/customers/new",
+  pricing: "/pricing",
+  createPricing: "/pricing/new",
+  reports: {
+    dsr: "/reports/dsr",
+    air: "/reports/air",
+    hotel: "/reports/hotel",
+    misc: "/reports/misc",
+    refunds: "/reports/refunds",
+  },
+  limits: {
+    cash: "/limits/cash",
+    credit: "/limits/credit",
+    temp: "/limits/temp",
+  },
+} as const;
