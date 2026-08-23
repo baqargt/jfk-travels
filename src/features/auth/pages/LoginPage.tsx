@@ -112,14 +112,14 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => {
-                setEmail("demo@jfktravel.com");
+                setEmail("@jfktravel.com");
                 setPassword("+321456");
                 setError("");
               }}
               className="mt-6 w-full rounded-lg border border-dashed border-brand-300 bg-brand-50/60 px-4 py-3 text-left transition-colors hover:bg-brand-50"
             >
               <p className="text-xs font-semibold text-brand-800">Admin credentials</p>
-              <p className="mt-0.5 text-xs text-brand-600">demo@jfktravel.com · 123456789 — click to autofill</p>
+              <p className="mt-0.5 text-xs text-brand-600">admin@jfktravel.com · 123456789 — click to autofill</p>
             </button>
 
             <p className="mt-8 text-center text-xs text-slate-400 lg:hidden">
