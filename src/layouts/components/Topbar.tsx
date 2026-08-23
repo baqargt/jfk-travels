@@ -1,13 +1,16 @@
 import { useLocation } from "react-router-dom";
 import { Menu, Search } from "lucide-react";
 import { getBreadcrumb } from "@/constants/navigation";
+import { hasArea } from "@/constants/permissions";
 import { useSidebar } from "@/context/SidebarContext";
+import { useAuth } from "@/context/AuthContext";
 import LimitsWidget from "@/layouts/components/LimitsWidget";
 import NotificationsDropdown from "@/layouts/components/NotificationsDropdown";
 import ProfileDropdown from "@/layouts/components/ProfileDropdown";
 
 export default function Topbar() {
   const { setMobileOpen } = useSidebar();
+  const { user } = useAuth();
   const location = useLocation();
   const crumb = getBreadcrumb(location.pathname);
 
@@ -40,7 +43,7 @@ export default function Topbar() {
           />
         </div>
 
-        <LimitsWidget />
+        {user && hasArea(user.role, "limits") && <LimitsWidget />}
         <NotificationsDropdown />
 
         <div className="mx-1 hidden h-6 w-px bg-slate-200 sm:block" />

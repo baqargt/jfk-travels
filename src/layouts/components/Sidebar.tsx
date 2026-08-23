@@ -2,7 +2,9 @@ import { NavLink, useLocation } from "react-router-dom";
 import { ChevronsLeft, ChevronsRight, Plane } from "lucide-react";
 import { useState } from "react";
 import { NAV_GROUPS } from "@/constants/navigation";
+import { filterNavigation } from "@/constants/permissions";
 import { useSidebar } from "@/context/SidebarContext";
+import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
@@ -11,12 +13,14 @@ interface SidebarProps {
 
 export default function Sidebar({ onNavigate }: SidebarProps) {
   const { collapsed, toggleCollapsed } = useSidebar();
+  const { user } = useAuth();
   const location = useLocation();
+  const groups = user ? filterNavigation(NAV_GROUPS, user.role) : NAV_GROUPS;
   const [openItem, setOpenItem] = useState<string | null>(() => {
-    const match = NAV_GROUPS.flatMap((g) => g.items).find(
+    const match = groups.flatMap((g) => g.items).find(
       (item) => item.children?.some((c) => location.pathname.startsWith(c.path)),
     );
-    return match?.label ?? "Booking Engine";
+    return match?.label ?? null;
   });
 
   const rail = collapsed;
@@ -53,7 +57,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
       </div>
 
       <nav className={cn("flex-1 overflow-y-auto overflow-x-hidden py-4", rail ? "px-2" : "px-3")}>
-        {NAV_GROUPS.map((group) => (
+        {groups.map((group) => (
           <div key={group.title} className="mb-1 last:mb-0">
             <p
               className={cn(
@@ -184,7 +188,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
           </button>
         )}
         {!rail && (
-          <p className="px-3 pt-2 pb-1 text-[10px] text-slate-600">v2.4.1 · © JFK Travel Group</p>
+          <p className="px-3 pt-2 pb-1 text-[10px] text-slate-600">v1.0.1 · © JFK Travel Group</p>
         )}
       </div>
     </div>

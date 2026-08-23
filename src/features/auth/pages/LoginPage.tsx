@@ -7,6 +7,16 @@ import { useAuth } from "@/context/AuthContext";
 import AuthLayout, { BrandPanel } from "@/layouts/AuthLayout";
 import { PATHS } from "@/routes/paths";
 
+const DEMO_PASSWORD = "+321456";
+
+const QUICK_ACCOUNTS = [
+  { label: "Baqar · Admin", email: "baqar@jfktravel.com" },
+  { label: "Iqra · Manager", email: "Iqra@jfktravel.com" },
+  { label: "Usman · Agent", email: "usman@jfktravel.com" },
+  { label: "Nadia · Accounts", email: "nadia@jfktravel.com" },
+  { label: "Fahad · Sub Agent", email: "fahad@blueline.com" },
+];
+
 export default function LoginPage() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
@@ -109,18 +119,34 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            <button
-              type="button"
-              onClick={() => {
-                setEmail("@jfktravel.com");
-                setPassword("+321456");
-                setError("");
-              }}
-              className="mt-6 w-full rounded-lg border border-dashed border-brand-300 bg-brand-50/60 px-4 py-3 text-left transition-colors hover:bg-brand-50"
-            >
-              <p className="text-xs font-semibold text-brand-800">Admin credentials</p>
-              <p className="mt-0.5 text-xs text-brand-600">admin@jfktravel.com · 123456789 — click to autofill</p>
-            </button>
+            <div className="mt-6 rounded-lg border border-dashed border-brand-300 bg-brand-50/60 px-4 py-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-brand-800">Quick sign-in (demo)</p>
+                <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-bold tracking-wide text-brand-700 uppercase">
+                  Role-based access
+                </span>
+              </div>
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {QUICK_ACCOUNTS.map((acc) => (
+                  <button
+                    key={acc.email}
+                    type="button"
+                    onClick={() => {
+                      setEmail(acc.email);
+                      setPassword(DEMO_PASSWORD);
+                      setError("");
+                    }}
+                    className="rounded-md border border-brand-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700"
+                    title={acc.email}
+                  >
+                    {acc.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] text-brand-600">
+                Password sab users ke liye ek hai — click any chip to autofill.
+              </p>
+            </div>
 
             <p className="mt-8 text-center text-xs text-slate-400 lg:hidden">
               © 2026 JFK Travel Group LLC · Enterprise ERP Suite
