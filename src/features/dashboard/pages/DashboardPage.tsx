@@ -59,53 +59,44 @@ export default function DashboardPage() {
         <StatCard label="Pending Refunds" value="7" change="-18%" up={false} note={fmtMoney(4057) + " at risk"} icon={ShieldCheck} tone="amber" />
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <div className="xl:col-span-2">
+      <div className="mt-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-3">
+        <div className="space-y-6 xl:col-span-2">
           <SalesExpensesChart />
-        </div>
-        <QuerySourcePie />
-      </div>
-
-      <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <div className="xl:col-span-2">
           <QueriesFlowChart />
-        </div>
-        <QueryFunnel />
-      </div>
+          <DestinationsChart />
 
-      <div className="mt-6">
-        <DestinationsChart />
-      </div>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <TopRankingChart title="Top 10 Agents" data={topAgents} description="Agents by bookings" color="#2563eb" />
+            <TopRankingChart title="Top 10 Suppliers" data={topSuppliers} description="Suppliers by bookings" color="#10b981" />
+          </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <TopRankingChart title="Top 10 Agents" data={topAgents} description="Agents by bookings" color="#2563eb" />
-        <TopRankingChart title="Top 10 Suppliers" data={topSuppliers} description="Suppliers by bookings" color="#10b981" />
-        <TopRankingChart title="Top 10 Airlines" data={topAirlines} description="Airlines by bookings" color="#8b5cf6" />
-      </div>
-
-      <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <div className="xl:col-span-2">
-          <DataTable
-            columns={txnColumns}
-            data={transactions}
-            rowKey={(t) => t.id}
-            searchable={false}
-            initialPageSize={6}
-            pageSizeOptions={[6]}
-            compact
-            emptyTitle="No transactions yet"
-            toolbarActions={
-              <Button variant="ghost" size="sm">
-                View all
-              </Button>
-            }
-          />
-          <p className="mt-3 px-1 text-xs text-slate-400">
-            Latest bookings across all sub companies and service verticals.
-          </p>
+          <div>
+            <DataTable
+              columns={txnColumns}
+              data={transactions}
+              rowKey={(t) => t.id}
+              searchable={false}
+              initialPageSize={6}
+              pageSizeOptions={[6]}
+              compact
+              emptyTitle="No transactions yet"
+              toolbarActions={
+                <Button variant="ghost" size="sm">
+                  View all
+                </Button>
+              }
+            />
+            <p className="mt-3 px-1 text-xs text-slate-400">
+              Latest bookings across all sub companies and service verticals.
+            </p>
+          </div>
         </div>
 
         <div className="space-y-6">
+          <QuerySourcePie />
+          <QueryFunnel />
+          <TopRankingChart title="Top 10 Airlines" data={topAirlines} description="Airlines by bookings" color="#8b5cf6" />
+
           <Card title="Quick Booking" description="Jump straight into the travel engine">
             <Input type="search" placeholder="Destination, airline, hotel..." className="!py-2.5" />
             <div className="mt-4 grid grid-cols-2 gap-2">
