@@ -15,9 +15,16 @@ import StatCard from "@/components/ui/StatCard";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { limitsOverview, transactions } from "@/lib/mockData";
+import { topAgents, topAirlines, topSuppliers } from "@/lib/mockCharts";
 import { fmtDate, fmtMoney, pct } from "@/lib/utils";
 import { PATHS } from "@/routes/paths";
 import type { Transaction } from "@/types";
+import SalesExpensesChart from "@/features/dashboard/components/SalesExpensesChart";
+import QueriesFlowChart from "@/features/dashboard/components/QueriesFlowChart";
+import DestinationsChart from "@/features/dashboard/components/DestinationsChart";
+import QueryFunnel from "@/features/dashboard/components/QueryFunnel";
+import QuerySourcePie from "@/features/dashboard/components/QuerySourcePie";
+import TopRankingChart from "@/features/dashboard/components/TopRankingChart";
 
 const quickLinks = [
   { label: "Flights", icon: Plane, path: PATHS.booking.flights },
@@ -50,6 +57,30 @@ export default function DashboardPage() {
         <StatCard label="Revenue (MTD)" value={fmtMoney(486320)} change="+8.1%" up note="vs last month" icon={ArrowRight} tone="emerald" />
         <StatCard label="Active Credit Lines" value="23" change="+3" up note="sub companies" icon={CreditCard} tone="violet" />
         <StatCard label="Pending Refunds" value="7" change="-18%" up={false} note={fmtMoney(4057) + " at risk"} icon={ShieldCheck} tone="amber" />
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <SalesExpensesChart />
+        </div>
+        <QuerySourcePie />
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <QueriesFlowChart />
+        </div>
+        <QueryFunnel />
+      </div>
+
+      <div className="mt-6">
+        <DestinationsChart />
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <TopRankingChart title="Top 10 Agents" data={topAgents} description="Agents by bookings" color="#2563eb" />
+        <TopRankingChart title="Top 10 Suppliers" data={topSuppliers} description="Suppliers by bookings" color="#10b981" />
+        <TopRankingChart title="Top 10 Airlines" data={topAirlines} description="Airlines by bookings" color="#8b5cf6" />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
