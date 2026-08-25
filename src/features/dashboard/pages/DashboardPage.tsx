@@ -93,25 +93,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="space-y-6">
-          <QuerySourcePie />
-          <QueryFunnel />
-          <TopRankingChart title="Top 10 Airlines" data={topAirlines} description="Airlines by bookings" color="#8b5cf6" />
-
-          <Card title="Quick Booking" description="Jump straight into the travel engine">
-            <Input type="search" placeholder="Destination, airline, hotel..." className="!py-2.5" />
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              {quickLinks.map(({ label, icon: Icon, path }) => (
-                <Link
-                  key={path}
-                  to={path}
-                  className="flex items-center gap-2.5 rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 transition-all hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
-                >
-                  <Icon className="h-4 w-4 text-brand-600" />
-                  {label}
-                </Link>
-              ))}
-            </div>
-          </Card>
+          
 
           <Card title="Limit Utilization" description="Financial headroom snapshot">
             <div className="space-y-4">
@@ -149,6 +131,26 @@ export default function DashboardPage() {
                 <p className="text-xs text-slate-300">Next settlement · Aug 30, 2026</p>
               </div>
               <CreditCard className="h-10 w-10 opacity-30" />
+            </div>
+          </Card>
+          
+          <QuerySourcePie />
+          <QueryFunnel />
+          <TopRankingChart title="Top 10 Airlines" data={topAirlines} description="Airlines by bookings" color="#8b5cf6" />
+
+          <Card title="Quick Booking" description="Jump straight into the travel engine">
+            <Input type="search" placeholder="Destination, airline, hotel..." className="!py-2.5" />
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {quickLinks.map(({ label, icon: Icon, path }) => (
+                <Link
+                  key={path}
+                  to={path}
+                  className="flex items-center gap-2.5 rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 transition-all hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+                >
+                  <Icon className="h-4 w-4 text-brand-600" />
+                  {label}
+                </Link>
+              ))}
             </div>
           </Card>
         </div>
