@@ -3,6 +3,7 @@ import { Navigate, NavLink, useParams } from "react-router-dom";
 import PageHeader from "@/components/ui/PageHeader";
 import ResultsGrid from "@/features/booking/components/ResultsGrid";
 import SearchForm from "@/features/booking/components/SearchForm";
+import FlightsSearchForm from "@/features/booking/components/FlightsSearchForm";
 import { SERVICES, serviceBySlug } from "@/features/booking/config";
 import { bookingResults } from "@/lib/bookingData";
 import { PATHS } from "@/routes/paths";
@@ -46,7 +47,11 @@ export default function BookingEnginePage() {
         ))}
       </nav>
 
-      <SearchForm config={config} onSearch={() => setLoading(true)} />
+      {config.slug === "flights" ? (
+        <FlightsSearchForm onSearch={() => setLoading(true)} />
+      ) : (
+        <SearchForm config={config} onSearch={() => setLoading(true)} />
+      )}
 
       <section className="mt-6">
         <div className="mb-3 flex items-baseline justify-between gap-3 px-1">

@@ -183,7 +183,7 @@ export interface LimitOverview {
 export interface BookingSearchField {
   name: string;
   label: string;
-  type: "text" | "select" | "date";
+  type: "text" | "select" | "date" | "file";
   placeholder?: string;
   options?: string[];
   colSpan?: 1 | 2;
