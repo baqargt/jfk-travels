@@ -394,7 +394,7 @@ export default function FlightsSearchForm({ onSearch }: FlightsSearchFormProps) 
         <TravelersBlock />
       </div>
 
-      {advancedOpen && (
+      {advancedOpen && isGroupingTab && (
         <div className="mt-4">
           <AdvancedFilters />
         </div>
@@ -405,16 +405,18 @@ export default function FlightsSearchForm({ onSearch }: FlightsSearchFormProps) 
           <RotateCcw className="h-3.5 w-3.5" />
           Reset
         </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() => setAdvancedOpen((o) => !o)}
-          aria-expanded={advancedOpen}
-        >
-          <Settings2 className="h-3.5 w-3.5" />
-          {advancedOpen ? "Hide Advanced" : "Advanced"}
-        </Button>
+        {isGroupingTab && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setAdvancedOpen((o) => !o)}
+            aria-expanded={advancedOpen}
+          >
+            <Settings2 className="h-3.5 w-3.5" />
+            {advancedOpen ? "Hide Advanced" : "Advanced"}
+          </Button>
+        )}
         <Button type="submit" disabled={searching}>
           <Search className="h-4 w-4" />
           {tab === "group-fare"
