@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Plus, RotateCcw, Search, Trash2 } from "lucide-react";
+import { Plus, RotateCcw, Search, Settings2, Trash2 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Tabs from "@/components/ui/Tabs";
 import FileUpload from "@/components/ui/FileUpload";
@@ -38,8 +38,9 @@ interface Leg {
   origin: string;
   destination: string;
   depart: string;
-  time: string;
+  cabin: string;
   airline: string;
+  time: string;
 }
 
 let legCounter = 0;
@@ -48,8 +49,9 @@ const newLeg = (): Leg => ({
   origin: "",
   destination: "",
   depart: "",
-  time: "",
+  cabin: "Economy",
   airline: "Any",
+  time: "",
 });
 
 function LegFields({ onRemove, removable }: { onRemove: (id: number) => void; removable: boolean }) {
@@ -58,7 +60,7 @@ function LegFields({ onRemove, removable }: { onRemove: (id: number) => void; re
   const set = (field: keyof Leg, value: string) => setLeg((l) => ({ ...l, [field]: value }));
 
   return (
-    <div className="grid grid-cols-1 gap-4 rounded-lg border border-slate-200 bg-slate-50/50 p-4 md:grid-cols-4 xl:grid-cols-5">
+    <div className="grid grid-cols-1 gap-4 rounded-lg border border-slate-200 bg-slate-50/50 p-4 md:grid-cols-6">
       <div>
         <Label>From</Label>
         <Input
@@ -86,23 +88,33 @@ function LegFields({ onRemove, removable }: { onRemove: (id: number) => void; re
         />
       </div>
       <div>
-        <Label>Time</Label>
-        <Input
-          type="time"
-          value={leg.time}
-          onChange={(e) => set("time", e.target.value)}
-        />
+        <Label>Cabin</Label>
+        <Select value={leg.cabin} onChange={(e) => set("cabin", e.target.value)}>
+          {cabins.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div>
+        <Label>Airline</Label>
+        <Select value={leg.airline} onChange={(e) => set("airline", e.target.value)}>
+          {["Any", ...airlines].map((a) => (
+            <option key={a} value={a}>
+              {a}
+            </option>
+          ))}
+        </Select>
       </div>
       <div className="flex items-end gap-2">
         <div className="flex-1">
-          <Label>Airline</Label>
-          <Select value={leg.airline} onChange={(e) => set("airline", e.target.value)}>
-            {["Any", ...airlines].map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
-            ))}
-          </Select>
+          <Label>Time</Label>
+          <Input
+            type="time"
+            value={leg.time}
+            onChange={(e) => set("time", e.target.value)}
+          />
         </div>
         {removable && (
           <Button
@@ -122,19 +134,63 @@ function LegFields({ onRemove, removable }: { onRemove: (id: number) => void; re
 }
 
 function TravelersBlock() {
+  const [stopType, setStopType] = useState("Any");
+  const [stopCity, setStopCity] = useState("");
+
   return (
     <div className="grid grid-cols-2 gap-4 rounded-lg bg-slate-50 p-4 sm:grid-cols-4">
       {[
         { label: "Adults", options: ["1", "2", "3", "4", "5", "6"] },
         { label: "Children", options: ["0", "1", "2", "3", "4"] },
         { label: "Infants", options: ["0", "1", "2"] },
-        { label: "Cabin", options: cabins },
       ].map(({ label, options }) => (
         <div key={label}>
           <Label>{label}</Label>
           <Select defaultValue={options[0]}>
             {options.map((o) => (
               <option key={o}>{o}</option>
+            ))}
+          </Select>
+        </div>
+      ))}
+      <div>
+        <Label>Stop</Label>
+        <Select value={stopType} onChange={(e) => setStopType(e.target.value)}>
+          <option value="Any">Any</option>
+          <option value="Direct">Direct</option>
+          <option value="City">City Code</option>
+        </Select>
+      </div>
+      {stopType === "City" && (
+        <div className="sm:col-span-3">
+          <Label>Stop City Code</Label>
+          <Input
+            type="text"
+            placeholder="e.g. DXB"
+            value={stopCity}
+            onChange={(e) => setStopCity(e.target.value)}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AdvancedFilters() {
+  return (
+    <div className="grid grid-cols-2 gap-4 rounded-lg bg-slate-50 p-4 sm:grid-cols-3">
+      {[
+        { label: "Fare Type", options: ["Any", "Refundable", "Non-Refundable"] },
+        { label: "Baggage", options: ["Any", "Include Bags", "No Baggage"] },
+        { label: "Fare Source", options: ["Any", "GDS", "NDC", "Budget", "Consolidator"] },
+      ].map(({ label, options }) => (
+        <div key={label}>
+          <Label>{label}</Label>
+          <Select defaultValue="Any">
+            {options.map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
             ))}
           </Select>
         </div>
@@ -289,6 +345,7 @@ export default function FlightsSearchForm({ onSearch }: FlightsSearchFormProps) 
   const [tab, setTab] = useState<FlightTab>("one-way");
   const [groupTab, setGroupTab] = useState<GroupFareTab>("one-way");
   const [searching, setSearching] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -337,10 +394,26 @@ export default function FlightsSearchForm({ onSearch }: FlightsSearchFormProps) 
         <TravelersBlock />
       </div>
 
+      {advancedOpen && (
+        <div className="mt-4">
+          <AdvancedFilters />
+        </div>
+      )}
+
       <div className="mt-5 flex items-center justify-end gap-2">
         <Button type="reset" variant="ghost" size="sm">
           <RotateCcw className="h-3.5 w-3.5" />
           Reset
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => setAdvancedOpen((o) => !o)}
+          aria-expanded={advancedOpen}
+        >
+          <Settings2 className="h-3.5 w-3.5" />
+          {advancedOpen ? "Hide Advanced" : "Advanced"}
         </Button>
         <Button type="submit" disabled={searching}>
           <Search className="h-4 w-4" />
@@ -348,9 +421,17 @@ export default function FlightsSearchForm({ onSearch }: FlightsSearchFormProps) 
             ? searching
               ? "Submitting..."
               : "Submit request"
-            : searching
-              ? "Searching..."
-              : "Search Flights"}
+            : tab === "import"
+              ? searching
+                ? "Importing..."
+                : "Import PNR"
+              : tab === "sync"
+                ? searching
+                  ? "Syncing..."
+                  : "Sync PNR"
+                : searching
+                  ? "Searching..."
+                  : "Search Flights"}
         </Button>
       </div>
     </form>
