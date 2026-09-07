@@ -221,55 +221,12 @@ function MultiLeg({ minCount, showAddMore }: { minCount: number; showAddMore: bo
 }
 
 function GroupFareForm({ type }: { type: GroupFareTab }) {
-  const showAddMore = type === "multi";
-  const minCount = type === "return" || type === "multi" || type === "specific" ? 2 : 1;
+  const showAddMore = type === "multi" || type === "specific";
+  const minCount = type === "return" || type === "multi" ? 2 : 1;
 
   return (
     <div className="space-y-4">
-      {type === "specific" ? (
-        <SpecificFare />
-      ) : (
-        <MultiLeg minCount={minCount} showAddMore={showAddMore} />
-      )}
-    </div>
-  );
-}
-
-function SpecificFare() {
-  const [origin, setOrigin] = useState("");
-  const [destination, setDestination] = useState("");
-  const [depart, setDepart] = useState("");
-  const [time, setTime] = useState("");
-  const [airline, setAirline] = useState("Any");
-
-  return (
-    <div className="grid grid-cols-1 gap-4 rounded-lg border border-slate-200 bg-slate-50/50 p-4 md:grid-cols-4 xl:grid-cols-5">
-      <div>
-        <Label>From</Label>
-        <Input type="text" placeholder="JFK - New York" value={origin} onChange={(e) => setOrigin(e.target.value)} />
-      </div>
-      <div>
-        <Label>To</Label>
-        <Input type="text" placeholder="DXB - Dubai" value={destination} onChange={(e) => setDestination(e.target.value)} />
-      </div>
-      <div>
-        <Label>Date</Label>
-        <Input type="date" value={depart} onChange={(e) => setDepart(e.target.value)} />
-      </div>
-      <div>
-        <Label>Time</Label>
-        <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-      </div>
-      <div>
-        <Label>Airline</Label>
-        <Select value={airline} onChange={(e) => setAirline(e.target.value)}>
-          {["Any", ...airlines].map((a) => (
-            <option key={a} value={a}>
-              {a}
-            </option>
-          ))}
-        </Select>
-      </div>
+      <MultiLeg minCount={minCount} showAddMore={showAddMore} />
     </div>
   );
 }
@@ -390,9 +347,11 @@ export default function FlightsSearchForm({ onSearch }: FlightsSearchFormProps) 
 
       {tab === "sync" && <SyncFields />}
 
-      <div className="mt-5">
-        <TravelersBlock />
-      </div>
+      {tab !== "import" && tab !== "sync" && (
+        <div className="mt-5">
+          <TravelersBlock />
+        </div>
+      )}
 
       {advancedOpen && isGroupingTab && (
         <div className="mt-4">
