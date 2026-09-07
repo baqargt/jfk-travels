@@ -1,4 +1,5 @@
 import {
+  Briefcase,
   Building2,
   CalendarDays,
   Camera,
@@ -78,6 +79,14 @@ export const NAV_GROUPS: NavGroup[] = [
           { label: "Company Profile", icon: Building2, path: PATHS.company.profile },
           { label: "Sub Companies", icon: Users, path: PATHS.company.subCompanies },
           { label: "Create Sub Company", icon: UserPlus, path: PATHS.company.createSubCompany },
+        ],
+      },
+      {
+        label: "Departments",
+        icon: Briefcase,
+        children: [
+          { label: "View Departments", icon: Users, path: PATHS.departments.list },
+          { label: "Create Department", icon: UserPlus, path: PATHS.departments.create },
         ],
       },
       {

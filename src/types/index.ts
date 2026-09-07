@@ -55,6 +55,15 @@ export interface SubCompany {
   createdAt: string;
 }
 
+export interface Department {
+  id: string;
+  name: string;
+  head: string;
+  users: number;
+  status: AccountStatus;
+  createdAt: string;
+}
+
 export interface Transaction {
   id: string;
   customer: string;

@@ -1,5 +1,6 @@
 import type {
   Customer,
+  Department,
   LimitOverview,
   NotificationItem,
   SubCompany,
@@ -76,6 +77,18 @@ export const subCompanies: SubCompany[] = [
   { id: "SUB-04", name: "Sky Wings Franchise", type: "Franchise", location: "Houston, USA", manager: "Saad Qureshi", users: 7, creditLimit: 60_000, cashBalance: 15_400, status: "Active", createdAt: "2024-01-09" },
   { id: "SUB-05", name: "Gulberg Franchise", type: "Franchise", location: "Lahore, Pakistan", manager: "Iqra Shahid", users: 11, creditLimit: 100_000, cashBalance: 27_900, status: "Active", createdAt: "2024-11-27" },
   { id: "SUB-06", name: "Clifton Branch", type: "Branch", location: "Karachi, Pakistan", manager: "Unassigned", users: 0, creditLimit: 40_000, cashBalance: 0, status: "Inactive", createdAt: "2025-04-18" },
+];
+
+export const departments: Department[] = [
+  { id: "DEPT-01", name: "IT", head: "Usman Tariq", users: 8, status: "Active", createdAt: "2020-01-15" },
+  { id: "DEPT-02", name: "Human Resource", head: "Rabia Anwar", users: 5, status: "Active", createdAt: "2020-01-15" },
+  { id: "DEPT-03", name: "Accounts", head: "Iqra Shahid", users: 6, status: "Active", createdAt: "2020-01-15" },
+  { id: "DEPT-04", name: "Sales", head: "Fahad Mehmood", users: 12, status: "Active", createdAt: "2020-01-15" },
+  { id: "DEPT-05", name: "Operation", head: "Saad Qureshi", users: 10, status: "Active", createdAt: "2020-01-15" },
+  { id: "DEPT-06", name: "Marketing", head: "Unassigned", users: 4, status: "Active", createdAt: "2021-06-01" },
+  { id: "DEPT-07", name: "Travel", head: "Usman Tariq", users: 15, status: "Active", createdAt: "2020-01-15" },
+  { id: "DEPT-08", name: "Holiday", head: "Fahad Mehmood", users: 6, status: "Active", createdAt: "2021-06-01" },
+  { id: "DEPT-09", name: "Travel Desk", head: "Rabia Anwar", users: 7, status: "Active", createdAt: "2021-06-01" },
 ];
 
 export const customers: Customer[] = [

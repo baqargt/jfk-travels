@@ -17,6 +17,10 @@ export const PATHS = {
     subCompanies: "/company/sub-companies",
     createSubCompany: "/company/sub-companies/new",
   },
+  departments: {
+    list: "/departments",
+    create: "/departments/new",
+  },
   users: "/users",
   createUser: "/users/new",
   customers: "/customers",
