@@ -19,6 +19,24 @@ const MODULES = [
   "Limits",
 ] as const;
 
+const BOOKING_ACCESS = ["All", "Air", "Hotel", "Insurance", "Transfer", "Holiday", "Sightseeing", "Fix Departure", "A to A"] as const;
+const REPORT_ACCESS = ["All", "DSR", "Air", "Non-Air"] as const;
+const TRANSACTION_ACCESS = ["All", "Own", "Users", "Branch", "Head Office", "Sub-Agent"] as const;
+const DASHBOARD_ITEMS = [
+  "Total Sales & Expenses",
+  "Month-wise Query Flow",
+  "Top Selling Destinations",
+  "Top 10 Agents",
+  "Top 10 Suppliers",
+  "Top 10 Airlines",
+  "Limit Utilization",
+  "Settlement due",
+  "Query Source",
+  "Query-wise Status",
+  "Quick Booking",
+  "Transaction Table",
+] as const;
+
 type Perm = "view" | "create" | "edit" | "delete";
 const PERMS: Perm[] = ["view", "create", "edit", "delete"];
 
@@ -51,6 +69,10 @@ export default function CreateUserPage() {
     return m;
   });
   const [saving, setSaving] = useState(false);
+  const [bookingAccess, setBookingAccess] = useState<string>("All");
+  const [reportAccess, setReportAccess] = useState<string>("All");
+  const [transactionAccess, setTransactionAccess] = useState<string>("All");
+  const [dashboardAccess, setDashboardAccess] = useState<Set<string>>(new Set(DASHBOARD_ITEMS));
 
   const applyRole = (next: Role) => {
     setRole(next);
@@ -61,6 +83,14 @@ export default function CreateUserPage() {
 
   const flip = (mod: string, perm: Perm) =>
     setMatrix((prev) => ({ ...prev, [mod]: { ...prev[mod], [perm]: !prev[mod][perm] } }));
+
+  const toggleDashboardItem = (item: string) =>
+    setDashboardAccess((prev) => {
+      const next = new Set(prev);
+      if (next.has(item)) next.delete(item);
+      else next.add(item);
+      return next;
+    });
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -105,13 +135,52 @@ export default function CreateUserPage() {
               label="Role"
               required
               hint={`Presets a sensible permission baseline — refine below`}
-              className="sm:col-span-2"
             >
               <Select value={role} onChange={(e) => applyRole(e.target.value as Role)}>
                 {(Object.keys(ROLE_PRESETS) as Role[]).map((r) => (
                   <option key={r}>{r}</option>
                 ))}
               </Select>
+            </FormField>
+
+            <FormField label="Booking Access" hint="Modules this user can book">
+              <Select value={bookingAccess} onChange={(e) => setBookingAccess(e.target.value)}>
+                {BOOKING_ACCESS.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </Select>
+            </FormField>
+
+            <FormField label="Report Access" hint="Reports this user can view">
+              <Select value={reportAccess} onChange={(e) => setReportAccess(e.target.value)}>
+                {REPORT_ACCESS.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </Select>
+            </FormField>
+
+            <FormField label="Transaction" hint="Scope of transactions visible to this user">
+              <Select value={transactionAccess} onChange={(e) => setTransactionAccess(e.target.value)}>
+                {TRANSACTION_ACCESS.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </Select>
+            </FormField>
+
+            <FormField label="Dashboard Access" hint="Multi-select dashboard widgets" className="sm:col-span-2">
+              <div className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200 bg-slate-50/50 p-3 sm:grid-cols-2">
+                {DASHBOARD_ITEMS.map((item) => (
+                  <label key={item} className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={dashboardAccess.has(item)}
+                      onChange={() => toggleDashboardItem(item)}
+                      className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-brand-600"
+                    />
+                    {item}
+                  </label>
+                ))}
+              </div>
             </FormField>
           </div>
 
