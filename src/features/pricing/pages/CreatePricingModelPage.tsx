@@ -1,11 +1,18 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { CircleCheck, Plus, Trash2 } from "lucide-react";
+import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { FormField, Input, Select } from "@/components/ui/Input";
+import MultiSelect from "@/components/ui/MultiSelect";
 import PageHeader, { Card } from "@/components/ui/PageHeader";
 import StatusToggle from "@/components/ui/StatusToggle";
+import Tabs from "@/components/ui/Tabs";
+import AirTemplateForm, { defaultAirTemplate } from "@/features/pricing/components/AirTemplateForm";
+import HotelTemplateForm, { defaultHotelTemplate } from "@/features/pricing/components/HotelTemplateForm";
+import TourTemplateForm, { defaultTourTemplate } from "@/features/pricing/components/TourTemplateForm";
 import { airlines, cabins } from "@/lib/bookingData";
+import { ALL_TEMPLATE_CATEGORIES } from "@/types";
 import { fmtMoney } from "@/lib/utils";
 import { PATHS } from "@/routes/paths";
 
@@ -30,6 +37,18 @@ const newRule = (): RuleRow => ({
   value: "",
 });
 
+const availableCategories = ALL_TEMPLATE_CATEGORIES.map((c) => ({ label: c, value: c }));
+
+const categoryVariant: Record<string, "blue" | "violet" | "amber" | "green" | "red" | "gray"> = {
+  Air: "blue",
+  Hotel: "amber",
+  Tour: "green",
+  Car: "red",
+  Transfer: "gray",
+  Insurance: "violet",
+  "Offline MISC": "gray",
+};
+
 export default function CreatePricingModelPage() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
@@ -43,6 +62,12 @@ export default function CreatePricingModelPage() {
   const [rules, setRules] = useState<RuleRow[]>([newRule()]);
   const [saving, setSaving] = useState(false);
 
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<string>("");
+  const [airData, setAirData] = useState(defaultAirTemplate);
+  const [hotelData, setHotelData] = useState(defaultHotelTemplate);
+  const [tourData, setTourData] = useState(defaultTourTemplate);
+
   const patch = (id: number, key: keyof RuleRow, v: string) =>
     setRules((rs) => rs.map((r) => (r.id === id ? { ...r, [key]: v } : r)));
 
@@ -52,6 +77,17 @@ export default function CreatePricingModelPage() {
   const markupAmount = firstRule?.mType === "%" ? (sampleFare * markupValue) / 100 : markupValue;
   const commissionAmount = type === "Commission" ? (sampleFare * Number(commissionPct || 0)) / 100 : 0;
   const finalPrice = sampleFare + markupAmount;
+
+  const handleCategoryChange = (values: string[]) => {
+    setSelectedCategories(values);
+    if (values.length === 0) {
+      setActiveTab("");
+    } else if (!values.includes(activeTab)) {
+      setActiveTab(values[0]);
+    }
+  };
+
+  const tabs = selectedCategories.map((c) => ({ id: c, label: c }));
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -181,6 +217,48 @@ export default function CreatePricingModelPage() {
                 </div>
               </div>
             ))}
+          </Card>
+
+          <Card title="Templates" description="Assign templates to this pricing model">
+            <div className="space-y-5">
+              <FormField label="Select Templates" hint="Choose categories to attach template configurations">
+                <MultiSelect
+                  options={availableCategories}
+                  value={selectedCategories}
+                  onChange={handleCategoryChange}
+                  placeholder="Select template categories..."
+                />
+              </FormField>
+
+              {selectedCategories.length > 0 && (
+                <div className="space-y-4">
+                  <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
+
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/40 p-5">
+                    <div className="mb-4 flex items-center gap-2">
+                      <Badge variant={categoryVariant[activeTab] ?? "gray"}>{activeTab}</Badge>
+                      <span className="text-sm font-medium text-slate-700">Template Configuration</span>
+                    </div>
+
+                    {activeTab === "Air" && (
+                      <AirTemplateForm data={airData} onChange={setAirData} />
+                    )}
+                    {activeTab === "Hotel" && (
+                      <HotelTemplateForm data={hotelData} onChange={setHotelData} />
+                    )}
+                    {activeTab === "Tour" && (
+                      <TourTemplateForm data={tourData} onChange={setTourData} />
+                    )}
+
+                    {activeTab !== "Air" && activeTab !== "Hotel" && activeTab !== "Tour" && (
+                      <div className="py-8 text-center text-sm text-slate-400">
+                        Template for <span className="font-semibold">{activeTab}</span> is not yet available.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </Card>
         </div>
 

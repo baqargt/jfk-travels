@@ -36,6 +36,7 @@ const router = createBrowserRouter([
       { path: "customers/new", lazy: page(() => import("@/features/customers/pages/CreateCustomerPage")) },
       { path: "pricing", lazy: page(() => import("@/features/pricing/pages/PricingModelsPage")) },
       { path: "pricing/new", lazy: page(() => import("@/features/pricing/pages/CreatePricingModelPage")) },
+      { path: "pricing/templates", lazy: page(() => import("@/features/pricing/pages/TemplatesPage")) },
       { path: "reports/dsr", lazy: page(() => import("@/features/reports/pages/DsrReportPage")) },
       { path: "reports/air", lazy: page(() => import("@/features/reports/pages/AirReportsPage")) },
       { path: "reports/hotel", lazy: page(() => import("@/features/reports/pages/HotelReportsPage")) },

@@ -86,7 +86,97 @@ export interface PricingRule {
   priority: number;
   status: "Active" | "Inactive";
   updatedAt: string;
+  templates?: PricingTemplate[];
 }
+
+export type TemplateCategory = "Air" | "Hotel" | "Tour" | "Car" | "Transfer" | "Insurance" | "Offline MISC";
+
+export const ALL_TEMPLATE_CATEGORIES: TemplateCategory[] = [
+  "Air", "Hotel", "Tour", "Car", "Transfer", "Insurance", "Offline MISC",
+];
+
+export interface AirTemplate {
+  category: "Air";
+  supplierName: string;
+  travelDateFrom: string;
+  travelDateTo: string;
+  tripType: string;
+  fromCountry: string;
+  toCountry: string;
+  fromAirport: string;
+  toAirport: string;
+  airlineCodeInclude: string[];
+  airlineCodeExclude: string[];
+  fareCategory: string;
+  classType: string;
+  passengerType: string;
+  formOfPayment: string;
+  markupAppliedOn: string;
+  markupPercentage: string;
+  markupAmount: string;
+  transactionAppliedOn: string;
+  transactionPercentage: string;
+  transactionFeeAmount: string;
+  rebateAppliedOn: string;
+  rebatePercentage: string;
+  rebateAmount: string;
+  outboundRbd: string;
+  inboundRbd: string;
+  description: string;
+}
+
+export interface HotelTemplate {
+  category: "Hotel";
+  supplierName: string;
+  hotelStarRating: string;
+  country: string;
+  cityName: string;
+  hotelCityNameInclude: string[];
+  hotelCityNameExclude: string[];
+  formOfPayment: string;
+  guestType: string;
+  markupBasis: string;
+  markupAppliedOn: string;
+  markupPercentage: string;
+  markupAmount: string;
+  transactionBasis: string;
+  transactionAppliedOn: string;
+  transactionPercentage: string;
+  transactionFeeAmount: string;
+  rebateBasis: string;
+  rebateAppliedOn: string;
+  rebatePercentage: string;
+  rebateAmount: string;
+  description: string;
+}
+
+export interface TourTemplate {
+  category: "Tour";
+  ruleName: string;
+  supplierName: string;
+  hotelStarRating: string;
+  country: string;
+  cityName: string;
+  toursPackageInclude: string[];
+  toursPackageExclude: string[];
+  formOfPayment: string;
+  packageType: string;
+  markupBasis: string;
+  markupAppliedOn: string;
+  markupPercentage: string;
+  markupAmount: string;
+  transactionBasis: string;
+  transactionAppliedOn: string;
+  transactionPercentage: string;
+  transactionFeeAmount: string;
+  rebateBasis: string;
+  rebateAppliedOn: string;
+  rebatePercentage: string;
+  rebateAmount: string;
+  description: string;
+}
+
+export type PricingTemplate = AirTemplate | HotelTemplate | TourTemplate;
 
 export interface LedgerEntry {
   date: string;

@@ -111,6 +111,7 @@ export const NAV_GROUPS: NavGroup[] = [
         children: [
           { label: "View Models", icon: Percent, path: PATHS.pricing },
           { label: "Create Model", icon: FileText, path: PATHS.createPricing },
+          { label: "Templates", icon: FileText, path: PATHS.templates },
         ],
       },
     ],

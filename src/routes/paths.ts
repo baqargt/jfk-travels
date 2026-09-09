@@ -27,6 +27,7 @@ export const PATHS = {
   createCustomer: "/customers/new",
   pricing: "/pricing",
   createPricing: "/pricing/new",
+  templates: "/pricing/templates",
   reports: {
     dsr: "/reports/dsr",
     air: "/reports/air",

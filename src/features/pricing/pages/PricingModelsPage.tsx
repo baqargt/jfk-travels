@@ -80,6 +80,9 @@ export default function PricingModelsPage() {
               <SlidersHorizontal className="h-4 w-4" />
               Simulate Fare
             </Button>
+            <Link to={PATHS.templates}>
+              <Button variant="secondary">Templates</Button>
+            </Link>
             <Link to={PATHS.createPricing}>
               <Button>
                 <Plus className="h-4 w-4" />
