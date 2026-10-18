@@ -64,6 +64,72 @@ export interface Department {
   createdAt: string;
 }
 
+export interface CustomerAddress {
+  address: string;
+  city: string;
+  country: string;
+  postalCode: string;
+}
+
+export interface CustomerContact {
+  firstName: string;
+  lastName: string;
+  designation: string;
+  email: string;
+}
+
+export interface CustomerDocument {
+  name: string;
+  type: string;
+  size: number;
+  lastModified: number;
+}
+
+export interface Customer {
+  id: string;
+  agentCode: string;
+  accountCode: string;
+  name: string;
+  customerTypes: string[];
+  customerChannels: string[];
+  branches: string[];
+  paymentChannels: string[];
+  groupCompany: string;
+  locationType: "Local" | "Global" | "Regional";
+  businessTypes: string[];
+  companyAddress: CustomerAddress;
+  billingAddress: CustomerAddress;
+  billingSameAsCompany: boolean;
+  telephone: string;
+  mobile: string;
+  email: string;
+  website: string;
+  logo: CustomerDocument | null;
+  tradeLicence: CustomerDocument | null;
+  tradeLicenceExpiry: string;
+  ownerIdentity: CustomerDocument | null;
+  quotationFlow: "Yes" | "No";
+  bookingOnHold: "Subject to Supplier" | "No";
+  notificationEmails: string[];
+  profileSelection: "Mandatory" | "Non-Mandatory" | "Skip";
+  accountManager: string;
+  revenueExecutive: string;
+  controlDepartment: string;
+  b2b2b: "Enabled" | "Disabled";
+  whiteLabel: "Yes" | "No";
+  allowReissue: "Yes" | "No";
+  dateTimeFormat: string;
+  defaultCurrency: string;
+  multiCurrencies: string[];
+  pricingModel: string;
+  adhocMarkup: "Yes" | "No";
+  dynamicPricingFields: string[];
+  admin: CustomerContact;
+  accountsContact: CustomerContact | null;
+  status: AccountStatus;
+  createdAt: string;
+}
+
 export interface Transaction {
   id: string;
   customer: string;
@@ -297,10 +363,36 @@ export interface BookingResult {
   unit?: string;
   badge?: string;
   meta: [string, string][];
+  search: Record<string, string | number | boolean>;
+  legs?: BookingFlightLeg[];
 }
 
 export interface TravelerCounts {
   adults: number;
   children: number;
   infants: number;
+}
+
+export interface BookingFlightLeg {
+  origin: string;
+  destination: string;
+  depart: string;
+  cabin: string;
+  airline: string;
+  time: string;
+}
+
+export interface BookingSearchFilters {
+  [key: string]: string;
+}
+
+export interface FlightSearchFilters {
+  tab: "one-way" | "round-trip" | "multi" | "flexi" | "group-fare";
+  legs: BookingFlightLeg[];
+  travelers: TravelerCounts;
+  stopType: string;
+  stopCity: string;
+  fareType: string;
+  baggage: string;
+  fareSource: string;
 }

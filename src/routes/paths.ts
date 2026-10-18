@@ -22,6 +22,10 @@ export const PATHS = {
     list: "/departments",
     create: "/departments/new",
   },
+  customers: {
+    list: "/customers",
+    create: "/customers/new",
+  },
   users: "/users",
   createUser: "/users/new",
   travellerProfiles: "/traveller-profiles",

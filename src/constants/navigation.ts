@@ -90,6 +90,14 @@ export const NAV_GROUPS: NavGroup[] = [
         ],
       },
       {
+        label: "Customers",
+        icon: Users,
+        children: [
+          { label: "View Customers", icon: Users, path: PATHS.customers.list },
+          { label: "Create Customer", icon: UserPlus, path: PATHS.customers.create },
+        ],
+      },
+      {
         label: "Users",
         icon: Users,
         children: [
