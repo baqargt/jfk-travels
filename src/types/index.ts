@@ -18,7 +18,7 @@ export interface AppUser {
   lastLogin: string;
 }
 
-export interface CustomerBookingHistory {
+export interface TravellerBookingHistory {
   ref: string;
   date: string;
   service: string;
@@ -26,7 +26,7 @@ export interface CustomerBookingHistory {
   status: "Confirmed" | "Completed" | "Cancelled" | "Pending";
 }
 
-export interface Customer {
+export interface TravellerProfile {
   id: string;
   name: string;
   email: string;
@@ -39,7 +39,7 @@ export interface Customer {
   lifetimeValue: number;
   status: AccountStatus;
   joinedAt: string;
-  history: CustomerBookingHistory[];
+  history: TravellerBookingHistory[];
 }
 
 export interface SubCompany {
@@ -297,4 +297,10 @@ export interface BookingResult {
   unit?: string;
   badge?: string;
   meta: [string, string][];
+}
+
+export interface TravelerCounts {
+  adults: number;
+  children: number;
+  infants: number;
 }

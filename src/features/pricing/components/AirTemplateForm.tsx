@@ -64,6 +64,15 @@ export default function AirTemplateForm({ data, onChange }: Props) {
         </Select>
       </FormField>
 
+      <FormField label="Class Type">
+        <Select value={data.classType} onChange={(e) => patch("classType", e.target.value)}>
+          <option value="">Select</option>
+          {classTypes.map((c) => (
+            <option key={c}>{c}</option>
+          ))}
+        </Select>
+      </FormField>
+
       <FormField label="From Airport">
         <Select value={data.fromAirport} onChange={(e) => patch("fromAirport", e.target.value)}>
           <option value="">Select airport</option>
@@ -105,15 +114,6 @@ export default function AirTemplateForm({ data, onChange }: Props) {
           <option value="">Select</option>
           {fareCategories.map((f) => (
             <option key={f}>{f}</option>
-          ))}
-        </Select>
-      </FormField>
-
-      <FormField label="Class Type">
-        <Select value={data.classType} onChange={(e) => patch("classType", e.target.value)}>
-          <option value="">Select</option>
-          {classTypes.map((c) => (
-            <option key={c}>{c}</option>
           ))}
         </Select>
       </FormField>

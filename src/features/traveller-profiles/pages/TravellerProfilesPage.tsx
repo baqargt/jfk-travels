@@ -6,18 +6,18 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Badge, { StatusBadge } from "@/components/ui/Badge";
 import PageHeader from "@/components/ui/PageHeader";
-import { customers as seed } from "@/lib/mockData";
+import { travellerProfiles as seed } from "@/lib/mockData";
 import { fmtDate, fmtMoney, initials } from "@/lib/utils";
 import { PATHS } from "@/routes/paths";
-import type { Customer } from "@/types";
+import type { TravellerProfile } from "@/types";
 
-export default function CustomersPage() {
-  const [selected, setSelected] = useState<Customer | null>(null);
+export default function TravellerProfilesPage() {
+  const [selected, setSelected] = useState<TravellerProfile | null>(null);
 
-  const columns: Column<Customer>[] = [
+  const columns: Column<TravellerProfile>[] = [
     {
       key: "name",
-      header: "Customer",
+      header: "Traveller",
       render: (c) => (
         <div className="flex items-center gap-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
@@ -81,13 +81,13 @@ export default function CustomersPage() {
   return (
     <>
       <PageHeader
-        title="Customers"
-        description="CRM view of travelers with lifetime value and booking history."
+        title="Traveller Profiles"
+        description="CRM view of travellers with lifetime value and booking history."
         actions={
-          <Link to={PATHS.createCustomer}>
+          <Link to={PATHS.createTravellerProfile}>
             <Button>
               <Plus className="h-4 w-4" />
-              Add Customer
+              Add Traveller Profile
             </Button>
           </Link>
         }
@@ -105,7 +105,7 @@ export default function CustomersPage() {
         open={!!selected}
         onClose={() => setSelected(null)}
         title={selected?.name ?? ""}
-        subtitle={selected ? `${selected.id} · Customer since ${fmtDate(selected.joinedAt)}` : ""}
+        subtitle={selected ? `${selected.id} · Traveller since ${fmtDate(selected.joinedAt)}` : ""}
         size="lg"
         footer={
           <>

@@ -52,6 +52,7 @@ const categoryVariant: Record<string, "blue" | "violet" | "amber" | "green" | "r
 export default function CreatePricingModelPage() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
+  const [detail, setDetail] = useState("");
   const [type, setType] = useState<"Markup" | "Commission">("Markup");
   const [scope, setScope] = useState("Airline");
   const [appliesTo, setAppliesTo] = useState("");
@@ -110,7 +111,10 @@ export default function CreatePricingModelPage() {
               <FormField label="Model name" required>
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Emirates Peak Season Markup" />
               </FormField>
-              <FormField label="Rule type">
+              <FormField label="Detail" required>
+                <Input value={detail} onChange={(e) => setDetail(e.target.value)} placeholder="Pricing description" />
+              </FormField>
+              {/* <FormField label="Rule type">
                 <Select value={type} onChange={(e) => setType(e.target.value as typeof type)}>
                   <option>Markup</option>
                   <option>Commission</option>
@@ -146,11 +150,11 @@ export default function CreatePricingModelPage() {
                     <Input type="number" min={0} step="0.25" value={commissionPct} onChange={(e) => setCommissionPct(e.target.value)} />
                   </FormField>
                 </>
-              )}
+              )} */}
             </div>
           </Card>
 
-          <Card
+          {/* <Card
             title="Dynamic Rules"
             description="Add conditions evaluated top to bottom — first match wins"
             actions={
@@ -217,7 +221,7 @@ export default function CreatePricingModelPage() {
                 </div>
               </div>
             ))}
-          </Card>
+          </Card> */}
 
           <Card title="Templates" description="Assign templates to this pricing model">
             <div className="space-y-5">

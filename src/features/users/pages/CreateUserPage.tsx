@@ -13,7 +13,7 @@ const MODULES = [
   "Booking Engine",
   "Company",
   "Users",
-  "Customers",
+  "Traveller Profiles",
   "Pricing",
   "Reports",
   "Limits",
@@ -56,9 +56,9 @@ const ROLE_PRESETS: Record<Role, (m: string, p: Perm) => boolean> = {
   Administrator: () => true,
   Manager: (m, p) => !(p === "delete" && (m === "Users" || m === "Company")),
   Agent: (m, p) =>
-    m === "Booking Engine" ? p !== "delete" : m === "Customers" ? p === "view" || p === "create" : m === "Reports" || m === "Dashboard" ? p === "view" : false,
+    m === "Booking Engine" ? p !== "delete" : m === "Traveller Profiles" ? p === "view" || p === "create" : m === "Reports" || m === "Dashboard" ? p === "view" : false,
   Accounts: (m) => m === "Reports" || m === "Limits" || m === "Dashboard",
-  "Sub Agent": (m, p) => (m === "Booking Engine" || m === "Customers") && p !== "delete",
+  "Sub Agent": (m, p) => (m === "Booking Engine" || m === "Traveller Profiles") && p !== "delete",
 };
 
 export default function CreateUserPage() {

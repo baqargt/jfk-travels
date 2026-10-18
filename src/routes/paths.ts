@@ -4,6 +4,7 @@ export const PATHS = {
   booking: {
     root: "/booking",
     flights: "/booking/flights",
+    passengers: (resultId: string) => `/booking/flights/${resultId}/passengers`,
     hotels: "/booking/hotels",
     insurance: "/booking/insurance",
     transfers: "/booking/transfers",
@@ -23,8 +24,8 @@ export const PATHS = {
   },
   users: "/users",
   createUser: "/users/new",
-  customers: "/customers",
-  createCustomer: "/customers/new",
+  travellerProfiles: "/traveller-profiles",
+  createTravellerProfile: "/traveller-profiles/new",
   pricing: "/pricing",
   createPricing: "/pricing/new",
   templates: "/pricing/templates",

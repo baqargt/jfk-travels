@@ -98,11 +98,11 @@ export const NAV_GROUPS: NavGroup[] = [
         ],
       },
       {
-        label: "Customers",
+        label: "Traveller Profiles",
         icon: User,
         children: [
-          { label: "View Customers", icon: Users, path: PATHS.customers },
-          { label: "Create Customer", icon: UserPlus, path: PATHS.createCustomer },
+          { label: "View Traveller Profiles", icon: Users, path: PATHS.travellerProfiles },
+          { label: "Create Traveller Profile", icon: UserPlus, path: PATHS.createTravellerProfile },
         ],
       },
       {

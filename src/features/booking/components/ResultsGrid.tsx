@@ -6,6 +6,7 @@ import type { BookingResult } from "@/types";
 interface ResultsGridProps {
   results: BookingResult[];
   loading: boolean;
+  onBook?: (result: BookingResult) => void;
 }
 
 function SkeletonCard() {
@@ -28,7 +29,7 @@ function SkeletonCard() {
   );
 }
 
-export default function ResultsGrid({ results, loading }: ResultsGridProps) {
+export default function ResultsGrid({ results, loading, onBook }: ResultsGridProps) {
   if (loading) {
     return (
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -81,7 +82,11 @@ export default function ResultsGrid({ results, loading }: ResultsGridProps) {
               </span>
               {r.unit && <span className="ml-0.5 text-xs text-slate-400">{r.unit}</span>}
             </p>
-            <Button size="sm" title="Book this option (demo)">
+            <Button
+              size="sm"
+              title={onBook ? `Book ${r.title}` : "Book this option (demo)"}
+              onClick={() => onBook?.(r)}
+            >
               Book
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>

@@ -5,9 +5,11 @@ import Tabs from "@/components/ui/Tabs";
 import FileUpload from "@/components/ui/FileUpload";
 import { Label, Input, Select } from "@/components/ui/Input";
 import { airlines, cabins } from "@/lib/bookingData";
+import type { TravelerCounts } from "@/types";
 
 interface FlightsSearchFormProps {
-  onSearch: () => void;
+  onSearch: (travelers: TravelerCounts) => void;
+  onTravelersChange?: (travelers: TravelerCounts) => void;
 }
 
 type FlightTab = "one-way" | "round-trip" | "multi" | "flexi" | "import" | "sync" | "group-fare";
@@ -133,20 +135,29 @@ function LegFields({ onRemove, removable }: { onRemove: (id: number) => void; re
   );
 }
 
-function TravelersBlock() {
+function TravelersBlock({
+  travelers,
+  onChange,
+}: {
+  travelers: TravelerCounts;
+  onChange: (travelers: TravelerCounts) => void;
+}) {
   const [stopType, setStopType] = useState("Any");
   const [stopCity, setStopCity] = useState("");
 
   return (
     <div className="grid grid-cols-2 gap-4 rounded-lg bg-slate-50 p-4 sm:grid-cols-4">
-      {[
-        { label: "Adults", options: ["1", "2", "3", "4", "5", "6"] },
-        { label: "Children", options: ["0", "1", "2", "3", "4"] },
-        { label: "Infants", options: ["0", "1", "2"] },
-      ].map(({ label, options }) => (
+      {([
+        { key: "adults", label: "Adults", options: ["1", "2", "3", "4", "5", "6"] },
+        { key: "children", label: "Children", options: ["0", "1", "2", "3", "4"] },
+        { key: "infants", label: "Infants", options: ["0", "1", "2"] },
+      ] as const).map(({ key, label, options }) => (
         <div key={label}>
           <Label>{label}</Label>
-          <Select defaultValue={options[0]}>
+          <Select
+            value={travelers[key]}
+            onChange={(e) => onChange({ ...travelers, [key]: Number(e.target.value) })}
+          >
             {options.map((o) => (
               <option key={o}>{o}</option>
             ))}
@@ -298,16 +309,22 @@ const tabSectionLabel: Partial<Record<FlightTab, string>> = {
   "group-fare": "Group Fare",
 };
 
-export default function FlightsSearchForm({ onSearch }: FlightsSearchFormProps) {
+export default function FlightsSearchForm({ onSearch, onTravelersChange }: FlightsSearchFormProps) {
   const [tab, setTab] = useState<FlightTab>("one-way");
   const [groupTab, setGroupTab] = useState<GroupFareTab>("one-way");
   const [searching, setSearching] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [travelers, setTravelers] = useState<TravelerCounts>({ adults: 1, children: 0, infants: 0 });
+
+  const updateTravelers = (next: TravelerCounts) => {
+    setTravelers(next);
+    onTravelersChange?.(next);
+  };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     setSearching(true);
-    onSearch();
+    onSearch(travelers);
     setTimeout(() => setSearching(false), 700);
   };
 
@@ -318,6 +335,7 @@ export default function FlightsSearchForm({ onSearch }: FlightsSearchFormProps) 
   return (
     <form
       onSubmit={handleSubmit}
+      onReset={() => updateTravelers({ adults: 1, children: 0, infants: 0 })}
       className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
     >
       <Tabs tabs={flightTabs} active={tab} onChange={(id) => setTab(id as FlightTab)} className="mb-5" />
@@ -349,7 +367,7 @@ export default function FlightsSearchForm({ onSearch }: FlightsSearchFormProps) 
 
       {tab !== "import" && tab !== "sync" && (
         <div className="mt-5">
-          <TravelersBlock />
+          <TravelersBlock travelers={travelers} onChange={updateTravelers} />
         </div>
       )}
 

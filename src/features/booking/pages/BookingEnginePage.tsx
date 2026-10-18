@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate, NavLink, useParams } from "react-router-dom";
+import { Navigate, NavLink, useNavigate, useParams } from "react-router-dom";
 import PageHeader from "@/components/ui/PageHeader";
 import ResultsGrid from "@/features/booking/components/ResultsGrid";
 import SearchForm from "@/features/booking/components/SearchForm";
@@ -8,17 +8,39 @@ import { SERVICES, serviceBySlug } from "@/features/booking/config";
 import { bookingResults } from "@/lib/bookingData";
 import { PATHS } from "@/routes/paths";
 import { cn } from "@/lib/utils";
+import type { BookingResult, TravelerCounts } from "@/types";
 
 export default function BookingEnginePage() {
   const { service } = useParams<{ service: string }>();
   const config = serviceBySlug(service);
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [travelers, setTravelers] = useState<TravelerCounts>({ adults: 1, children: 0, infants: 0 });
 
   if (!config) {
     return <Navigate to={PATHS.booking.flights} replace />;
   }
 
   const results = bookingResults[config.slug] ?? [];
+
+  const showLoading = () => {
+    setLoading(true);
+    window.setTimeout(() => setLoading(false), 700);
+  };
+
+  const handleFlightSearch = (counts: TravelerCounts) => {
+    setTravelers(counts);
+    showLoading();
+  };
+
+  const handleBook = (result: BookingResult) => {
+    const params = new URLSearchParams({
+      adults: String(travelers.adults),
+      children: String(travelers.children),
+      infants: String(travelers.infants),
+    });
+    navigate(`${PATHS.booking.passengers(result.id)}?${params.toString()}`);
+  };
 
   return (
     <>
@@ -48,9 +70,9 @@ export default function BookingEnginePage() {
       </nav>
 
       {config.slug === "flights" ? (
-        <FlightsSearchForm onSearch={() => setLoading(true)} />
+        <FlightsSearchForm onSearch={handleFlightSearch} onTravelersChange={setTravelers} />
       ) : (
-        <SearchForm config={config} onSearch={() => setLoading(true)} />
+        <SearchForm config={config} onSearch={showLoading} />
       )}
 
       <section className="mt-6">
@@ -61,7 +83,11 @@ export default function BookingEnginePage() {
           <p className="text-xs text-slate-400">Prices include your active pricing model (PRM-01)</p>
         </div>
         <div key={config.slug + loading} className="animate-fade-up">
-          <ResultsGrid results={results} loading={loading} />
+          <ResultsGrid
+            results={results}
+            loading={loading}
+            onBook={config.slug === "flights" ? handleBook : undefined}
+          />
         </div>
       </section>
     </>

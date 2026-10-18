@@ -1,5 +1,5 @@
 import type {
-  Customer,
+  TravellerProfile,
   Department,
   LimitOverview,
   NotificationItem,
@@ -91,9 +91,9 @@ export const departments: Department[] = [
   { id: "DEPT-09", name: "Travel Desk", head: "Rabia Anwar", users: 7, status: "Active", createdAt: "2021-06-01" },
 ];
 
-export const customers: Customer[] = [
+export const travellerProfiles: TravellerProfile[] = [
   {
-    id: "CUS-2001", name: "Sarah Connor", email: "sarah.connor@gmail.com", phone: "+1 212 555 0142",
+    id: "TRV-2001", name: "Sarah Connor", email: "sarah.connor@gmail.com", phone: "+1 212 555 0142",
     city: "New York", country: "USA", passport: "X1234567", passportExpiry: "2029-04-11",
     bookings: 24, lifetimeValue: 31_480.5, status: "Active", joinedAt: "2022-05-03",
     history: [
@@ -103,7 +103,7 @@ export const customers: Customer[] = [
     ],
   },
   {
-    id: "CUS-2002", name: "Bilal Raza", email: "bilal.raza@outlook.com", phone: "+92 300 8455120",
+    id: "TRV-2002", name: "Bilal Raza", email: "bilal.raza@outlook.com", phone: "+92 300 8455120",
     city: "Lahore", country: "Pakistan", passport: "AB4451120", passportExpiry: "2031-01-20",
     bookings: 11, lifetimeValue: 12_240.0, status: "Active", joinedAt: "2023-02-18",
     history: [
@@ -112,7 +112,7 @@ export const customers: Customer[] = [
     ],
   },
   {
-    id: "CUS-2003", name: "Emma Watson", email: "emma.w@gmail.com", phone: "+44 7700 900123",
+    id: "TRV-2003", name: "Emma Watson", email: "emma.w@gmail.com", phone: "+44 7700 900123",
     city: "London", country: "UK", passport: "P9988776", passportExpiry: "2028-09-30",
     bookings: 8, lifetimeValue: 6_930.25, status: "Active", joinedAt: "2023-08-11",
     history: [
@@ -121,7 +121,7 @@ export const customers: Customer[] = [
     ],
   },
   {
-    id: "CUS-2004", name: "David Chen", email: "dchen@yahoo.com", phone: "+1 415 555 0198",
+    id: "TRV-2004", name: "David Chen", email: "dchen@yahoo.com", phone: "+1 415 555 0198",
     city: "San Francisco", country: "USA", passport: "C5564321", passportExpiry: "2027-12-05",
     bookings: 15, lifetimeValue: 18_115.9, status: "Active", joinedAt: "2021-11-29",
     history: [
@@ -130,7 +130,7 @@ export const customers: Customer[] = [
     ],
   },
   {
-    id: "CUS-2005", name: "Ayesha Khan", email: "ayesha.khan@gmail.com", phone: "+971 50 123 4567",
+    id: "TRV-2005", name: "Ayesha Khan", email: "ayesha.khan@gmail.com", phone: "+971 50 123 4567",
     city: "Dubai", country: "UAE", passport: "AD1109887", passportExpiry: "2030-06-14",
     bookings: 19, lifetimeValue: 14_670.0, status: "Active", joinedAt: "2022-10-07",
     history: [
@@ -139,25 +139,25 @@ export const customers: Customer[] = [
     ],
   },
   {
-    id: "CUS-2006", name: "Michael Ross", email: "mross@gmail.com", phone: "+1 646 555 0101",
+    id: "TRV-2006", name: "Michael Ross", email: "mross@gmail.com", phone: "+1 646 555 0101",
     city: "Brooklyn", country: "USA", passport: "Y8812340", passportExpiry: "2029-08-23",
     bookings: 5, lifetimeValue: 3_420.0, status: "Inactive", joinedAt: "2024-03-25",
     history: [{ ref: "TXN-98444", date: "2026-08-19", service: "A to A Dubai Visa Run", amount: 210.0, status: "Cancelled" }],
   },
   {
-    id: "CUS-2007", name: "Zainab Ali", email: "zainab.ali@hotmail.com", phone: "+92 321 9988771",
+    id: "TRV-2007", name: "Zainab Ali", email: "zainab.ali@hotmail.com", phone: "+92 321 9988771",
     city: "Karachi", country: "Pakistan", passport: "EA7766554", passportExpiry: "2032-02-17",
     bookings: 13, lifetimeValue: 9_880.4, status: "Active", joinedAt: "2023-01-09",
     history: [{ ref: "TXN-98443", date: "2026-08-18", service: "Flight TK1988", amount: 742.75, status: "Confirmed" }],
   },
   {
-    id: "CUS-2008", name: "Omar Farooq", email: "omar.farooq@gmail.com", phone: "+966 55 789 1234",
+    id: "TRV-2008", name: "Omar Farooq", email: "omar.farooq@gmail.com", phone: "+966 55 789 1234",
     city: "Riyadh", country: "Saudi Arabia", passport: "S4432187", passportExpiry: "2031-10-02",
     bookings: 7, lifetimeValue: 11_250.0, status: "Active", joinedAt: "2024-07-14",
     history: [{ ref: "TXN-98442", date: "2026-08-18", service: "Maldives Escape 6N", amount: 3450.0, status: "Pending" }],
   },
   {
-    id: "CUS-2009", name: "Priya Sharma", email: "priya.s@gmail.com", phone: "+91 98100 12345",
+    id: "TRV-2009", name: "Priya Sharma", email: "priya.s@gmail.com", phone: "+91 98100 12345",
     city: "Mumbai", country: "India", passport: "N7788123", passportExpiry: "2028-03-08",
     bookings: 9, lifetimeValue: 7_540.75, status: "Active", joinedAt: "2023-11-30",
     history: [
@@ -166,7 +166,7 @@ export const customers: Customer[] = [
     ],
   },
   {
-    id: "CUS-2010", name: "James Wilson", email: "jwilson@company.com", phone: "+1 305 555 0177",
+    id: "TRV-2010", name: "James Wilson", email: "jwilson@company.com", phone: "+1 305 555 0177",
     city: "Miami", country: "USA", passport: "Z3321098", passportExpiry: "2030-01-25",
     bookings: 31, lifetimeValue: 47_930.2, status: "Active", joinedAt: "2021-06-12",
     history: [

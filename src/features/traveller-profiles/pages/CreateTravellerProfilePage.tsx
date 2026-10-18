@@ -7,7 +7,7 @@ import PageHeader, { Card } from "@/components/ui/PageHeader";
 import { countries } from "@/lib/bookingData";
 import { PATHS } from "@/routes/paths";
 
-export default function CreateCustomerPage() {
+export default function CreateTravellerProfilePage() {
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -36,14 +36,14 @@ export default function CreateCustomerPage() {
     e.preventDefault();
     setSaving(true);
     await new Promise((r) => setTimeout(r, 800));
-    navigate(PATHS.customers, { replace: true });
+    navigate(PATHS.travellerProfiles, { replace: true });
   };
 
   return (
     <>
       <PageHeader
-        title="Create Customer"
-        description="Onboard a new traveler with contact and travel document details."
+        title="Create Traveller Profile"
+        description="Onboard a new traveller with contact and travel document details."
       />
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 xl:grid-cols-2">
@@ -146,7 +146,7 @@ export default function CreateCustomerPage() {
                 {saving ? "Saving..." : (
                   <>
                     <CircleCheck className="h-4 w-4" />
-                    Save Customer
+                    Save Traveller Profile
                   </>
                 )}
               </Button>
