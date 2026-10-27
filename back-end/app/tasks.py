@@ -74,11 +74,15 @@ def expire_temporary_limits() -> int:
             expired_count += 1
         db.commit()
     for email, limit_id in emails:
-        send_email.delay(
+        args = (
             email,
             "Temporary limit expired",
             f"Temporary limit {limit_id} expired and its unused balance was removed.",
         )
+        if settings.celery_enabled:
+            send_email.delay(*args)
+        else:
+            send_email.run(*args)
     return expired_count
 
 

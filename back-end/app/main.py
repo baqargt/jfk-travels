@@ -112,18 +112,29 @@ def readiness():
         checks["database"] = "ok"
     except Exception:
         checks["database"] = "unavailable"
-    try:
-        client = redis.from_url(settings.redis_url, socket_timeout=2)
-        client.ping()
-        checks["redis"] = "ok"
-    except Exception:
-        checks["redis"] = "unavailable"
-    try:
-        s3_client().head_bucket(Bucket=settings.s3_bucket)
-        checks["object_storage"] = "ok"
-    except Exception:
-        checks["object_storage"] = "unavailable"
-    if any(value != "ok" for value in checks.values()):
+    if settings.redis_enabled:
+        try:
+            client = redis.from_url(settings.redis_url, socket_timeout=2)
+            client.ping()
+            checks["redis"] = "ok"
+        except Exception:
+            checks["redis"] = "unavailable"
+    else:
+        checks["redis"] = "disabled"
+    if not settings.file_uploads_enabled:
+        checks["object_storage"] = "disabled"
+        checks["malware_scan"] = "disabled"
+    elif settings.storage_backend == "s3":
+        try:
+            s3_client().head_bucket(Bucket=settings.s3_bucket)
+            checks["object_storage"] = "ok"
+        except Exception:
+            checks["object_storage"] = "unavailable"
+        checks["malware_scan"] = "ok" if settings.malware_scan_enabled else "disabled"
+    else:
+        checks["object_storage"] = "unsupported"
+        checks["malware_scan"] = "disabled"
+    if any(value in {"unavailable", "unsupported"} for value in checks.values()):
         return JSONResponse(status_code=503, content={"status": "degraded", "checks": checks})
     return {"status": "ok", "checks": checks}
 

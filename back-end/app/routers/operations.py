@@ -279,6 +279,10 @@ def create_upload_url(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if not settings.file_uploads_enabled:
+        raise ApiError(503, "Uploads disabled", "Document uploads are disabled on this deployment.")
+    if settings.storage_backend != "s3":
+        raise ApiError(503, "Storage unavailable", "The configured storage backend is not enabled yet.")
     if data.size_bytes > settings.max_upload_bytes:
         raise ApiError(413, "File too large", f"Maximum upload size is {settings.max_upload_bytes} bytes.")
     extension = {"application/pdf": ".pdf", "image/jpeg": ".jpg", "image/png": ".png"}[data.content_type]
@@ -311,6 +315,8 @@ def complete_upload(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if not settings.file_uploads_enabled:
+        raise ApiError(503, "Uploads disabled", "Document uploads are disabled on this deployment.")
     asset = db.scalar(
         select(FileAsset).where(
             FileAsset.id == file_id,
@@ -334,9 +340,16 @@ def complete_upload(
         raise ApiError(
             422, "Upload mismatch", "Uploaded file size or content type does not match the request."
         )
+    if not settings.malware_scan_enabled:
+        asset.scan_status = "unscanned"
+        db.commit()
+        return {"id": asset.id, "scanStatus": asset.scan_status}
     asset.scan_status = "scanning"
     db.commit()
-    scan_file.delay(str(asset.id))
+    if settings.celery_enabled:
+        scan_file.delay(str(asset.id))
+    else:
+        scan_file.run(str(asset.id))
     return {"id": asset.id, "scanStatus": asset.scan_status}
 
 

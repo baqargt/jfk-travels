@@ -18,6 +18,13 @@ class Settings(BaseSettings):
     cookie_secure: bool = False
     allowed_origins: str = "http://localhost:5173,http://localhost:8080"
 
+    redis_enabled: bool = True
+    celery_enabled: bool = True
+    storage_backend: str = "s3"
+    malware_scan_enabled: bool = True
+    file_uploads_enabled: bool = True
+    local_storage_path: str = "/var/lib/jfk-erp/uploads"
+
     admin_email: str = "admin@jfktravel.com"
     admin_password: str = "change-me-now"
     admin_name: str = "JFK Administrator"

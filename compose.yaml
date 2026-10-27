@@ -20,6 +20,7 @@ services:
     networks: [private]
 
   redis:
+    profiles: ["full"]
     image: redis:7-alpine
     restart: unless-stopped
     command: redis-server --appendonly yes
@@ -33,6 +34,7 @@ services:
     networks: [private]
 
   minio:
+    profiles: ["full"]
     image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372
     restart: unless-stopped
     command: server /data --console-address ":9001"
@@ -52,6 +54,7 @@ services:
     networks: [private]
 
   clamav:
+    profiles: ["full"]
     image: clamav/clamav:stable
     restart: unless-stopped
     volumes:
@@ -65,33 +68,30 @@ services:
       - path: .env
         required: false
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://jfk:change-me@db:5432/jfk_erp}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-jfk}:${POSTGRES_PASSWORD:-change-me}@db:5432/${POSTGRES_DB:-jfk_erp}
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT: http://minio:9000
       S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
-      CLAMAV_HOST: ${CLAMAV_HOST:-clamav}
+      CLAMAV_HOST: clamav
     command: sh -c "alembic upgrade head && python -m app.init_storage && python -m app.seed && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     depends_on:
       db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio:
         condition: service_healthy
     expose: ["8000"]
     networks: [private]
 
   worker:
+    profiles: ["full"]
     build: ./back-end
     restart: unless-stopped
     env_file:
       - path: .env
         required: false
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://jfk:change-me@db:5432/jfk_erp}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
-      CLAMAV_HOST: ${CLAMAV_HOST:-clamav}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-jfk}:${POSTGRES_PASSWORD:-change-me}@db:5432/${POSTGRES_DB:-jfk_erp}
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT: http://minio:9000
+      CLAMAV_HOST: clamav
     command: celery -A app.tasks.celery_app worker --loglevel=INFO
     depends_on:
       db:
@@ -101,14 +101,15 @@ services:
     networks: [private]
 
   beat:
+    profiles: ["full"]
     build: ./back-end
     restart: unless-stopped
     env_file:
       - path: .env
         required: false
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://jfk:change-me@db:5432/jfk_erp}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-jfk}:${POSTGRES_PASSWORD:-change-me}@db:5432/${POSTGRES_DB:-jfk_erp}
+      REDIS_URL: redis://redis:6379/0
     command: celery -A app.tasks.celery_app beat --loglevel=INFO
     depends_on:
       db:
