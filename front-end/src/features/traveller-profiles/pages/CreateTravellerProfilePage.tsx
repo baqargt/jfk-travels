@@ -1,15 +1,19 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { CircleCheck } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { FormField, Input, Select, Textarea } from "@/components/ui/Input";
 import PageHeader, { Card } from "@/components/ui/PageHeader";
 import { countries } from "@/lib/bookingData";
 import { PATHS } from "@/routes/paths";
+import { apiRequest } from "@/api/client";
 
 export default function CreateTravellerProfilePage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -35,8 +39,37 @@ export default function CreateTravellerProfilePage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 800));
-    navigate(PATHS.travellerProfiles, { replace: true });
+    setError("");
+    try {
+      await apiRequest("/travellers", {
+        method: "POST",
+        body: {
+          firstName: form.firstName.trim(),
+          lastName: form.lastName.trim(),
+          email: form.email.trim(),
+          phone: form.phone,
+          city: form.city,
+          country: form.country,
+          dateOfBirth: form.dob || null,
+          passportNumber: form.passportNo,
+          passportExpiry: form.passportExpiry || null,
+          preferences: {
+            gender: form.gender,
+            nationality: form.nationality,
+            address: form.address,
+            visaNotes: form.visaNotes,
+            seat: form.seatPref,
+            meal: form.mealPref,
+            notes: form.notes,
+          },
+        },
+      });
+      await queryClient.invalidateQueries({ queryKey: ["travellers"] });
+      navigate(PATHS.travellerProfiles, { replace: true });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Traveller could not be created.");
+      setSaving(false);
+    }
   };
 
   return (
@@ -47,6 +80,7 @@ export default function CreateTravellerProfilePage() {
       />
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 xl:col-span-2">{error}</p>}
         <div className="space-y-6">
           <Card title="Personal Information">
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">

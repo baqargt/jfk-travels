@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Plus, X } from "lucide-react";
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
 import Badge, { StatusBadge } from "@/components/ui/Badge";
@@ -19,7 +20,10 @@ export default function CustomersPage() {
   const location = useLocation();
   const state = location.state as SuccessState | null;
   const [successVisible, setSuccessVisible] = useState(Boolean(state?.createdAgentCode));
-  const [customers] = useState<Customer[]>(getCustomers);
+  const { data: customers = [], isLoading, error } = useQuery({
+    queryKey: ["customers"],
+    queryFn: getCustomers,
+  });
 
   const columns: Column<Customer>[] = [
     {
@@ -87,6 +91,8 @@ export default function CustomersPage() {
         emptyTitle="No customers yet"
         emptyMessage="Create your first customer to start managing their account."
       />
+      {isLoading && <p className="mt-3 text-sm text-slate-500">Loading customers...</p>}
+      {error && <p className="mt-3 text-sm text-rose-600">{error instanceof Error ? error.message : "Customers could not be loaded."}</p>}
     </>
   );
 }

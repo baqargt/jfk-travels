@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, CircleCheck, ShieldCheck } from "lucide-react";
 import Button from "@/components/ui/Button";
@@ -19,10 +20,9 @@ import {
   NOTIFICATION_EMAILS,
   PAYMENT_CHANNELS,
 } from "@/features/customers/customerData";
-import { createCustomer, customerConflicts } from "@/features/customers/customerRepository";
-import { departments, subCompanies } from "@/lib/mockData";
-import { pricingRules } from "@/lib/mockReports";
-import { users } from "@/lib/mockUsers";
+import { createCustomer } from "@/features/customers/customerRepository";
+import { apiRequest } from "@/api/client";
+import type { ApiBranch, ApiDepartment, ApiPage, ApiPricingModel, ApiUser } from "@/api/types";
 import { PATHS } from "@/routes/paths";
 import type { Customer, CustomerAddress, CustomerContact, CustomerDocument } from "@/types";
 
@@ -80,7 +80,8 @@ const initial: CustomerDraft = {
 };
 
 const emailIsValid = (value: string) => /^\S+@\S+\.\S+$/.test(value);
-const toDocument = (file: File | null): CustomerDocument | null => file ? {
+const toDocument = (file: File | null, fileId?: string): CustomerDocument | null => file ? {
+  fileId,
   name: file.name,
   type: file.type,
   size: file.size,
@@ -113,9 +114,14 @@ export default function CreateCustomerPage() {
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
-  const branches = ["All", ...subCompanies.filter((company) => company.type === "Branch").map((company) => company.name)];
-  const activeUsers = users.filter((user) => user.status === "Active").map((user) => user.name);
-  const departmentNames = departments.filter((department) => department.status === "Active").map((department) => department.name);
+  const { data: branchPage } = useQuery({ queryKey: ["branches", "customer-form"], queryFn: () => apiRequest<ApiPage<ApiBranch>>("/branches?page_size=100") });
+  const { data: userPage } = useQuery({ queryKey: ["users", "customer-form"], queryFn: () => apiRequest<ApiPage<ApiUser>>("/users?page_size=100") });
+  const { data: departmentPage } = useQuery({ queryKey: ["departments", "customer-form"], queryFn: () => apiRequest<ApiPage<ApiDepartment>>("/departments?page_size=100") });
+  const { data: pricingPage } = useQuery({ queryKey: ["pricing-models", "customer-form"], queryFn: () => apiRequest<ApiPage<ApiPricingModel>>("/pricing-models?page_size=100") });
+  const branches = ["All", ...(branchPage?.items ?? []).filter((item) => item.status === "active").map((item) => item.name)];
+  const activeUsers = (userPage?.items ?? []).filter((item) => item.status === "active").map((item) => item.name);
+  const departmentNames = (departmentPage?.items ?? []).filter((item) => item.status === "active").map((item) => item.name);
+  const pricingModels = (pricingPage?.items ?? []).map((item) => item.name);
 
   const setValue = <K extends keyof CustomerDraft>(key: K, value: CustomerDraft[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -154,7 +160,6 @@ export default function CreateCustomerPage() {
       if (!form.branches.length) next.branches = "Select at least one branch.";
       if (!form.paymentChannels.length) next.paymentChannels = "Select at least one payment channel.";
       if (!form.businessTypes.length) next.businessTypes = "Select at least one business type.";
-      if (form.accountCode.trim() && customerConflicts(form.accountCode, form.admin.email).accountCode) next.accountCode = "That account code is already in use.";
     }
     if (index === 1) {
       if (!form.companyAddress.address.trim()) next["companyAddress.address"] = "Address is required.";
@@ -184,7 +189,6 @@ export default function CreateCustomerPage() {
       if (!form.admin.lastName.trim()) next["admin.lastName"] = "Last name is required.";
       if (!form.admin.designation.trim()) next["admin.designation"] = "Designation is required.";
       if (!emailIsValid(form.admin.email)) next["admin.email"] = "Enter a valid admin email.";
-      if (form.admin.email && customerConflicts(form.accountCode, form.admin.email).adminEmail) next["admin.email"] = "That admin email is already in use.";
       if (form.adminPassword.length < 8) next.adminPassword = "Password must be at least 8 characters.";
       if (form.accountsEnabled) {
         const contact = form.accountsContact ?? EMPTY_CONTACT;
@@ -205,14 +209,14 @@ export default function CreateCustomerPage() {
     }
   };
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (!agreed) return;
     setSaving(true);
     setSubmitError("");
     try {
       const { adminPassword: _password, accountsEnabled: _accountsEnabled, ...customerInput } = form;
-      const customer = createCustomer({
+      const customer = await createCustomer({
         ...customerInput,
         accountsContact: form.accountsEnabled ? form.accountsContact : null,
       });
@@ -300,12 +304,12 @@ export default function CreateCustomerPage() {
                   )}
                 </div>
                 <div className="grid grid-cols-1 gap-5 border-t border-slate-100 pt-5 md:grid-cols-3">
-                  <FileUpload name="logo" label="Logo (optional)" accept="image/*" onFileChange={(file) => setValue("logo", toDocument(file))} />
+                  <FileUpload secure name="logo" label="Logo (optional)" accept="image/jpeg,image/png" onFileChange={(file) => setValue("logo", toDocument(file))} onUploaded={(id, file) => setValue("logo", toDocument(file, id))} />
                   <div>
-                    <FileUpload name="tradeLicence" label="Trade Licence (optional)" accept=".pdf,image/*" onFileChange={(file) => { setValue("tradeLicence", toDocument(file)); if (!file) setValue("tradeLicenceExpiry", ""); }} />
+                    <FileUpload secure name="tradeLicence" label="Trade Licence (optional)" accept="application/pdf,image/jpeg,image/png" onFileChange={(file) => { setValue("tradeLicence", toDocument(file)); if (!file) setValue("tradeLicenceExpiry", ""); }} onUploaded={(id, file) => setValue("tradeLicence", toDocument(file, id))} />
                     {form.tradeLicence && <FormField label="Licence Expiry" required error={errors.tradeLicenceExpiry} className="mt-3"><Input type="date" value={form.tradeLicenceExpiry} onChange={(event) => setValue("tradeLicenceExpiry", event.target.value)} /></FormField>}
                   </div>
-                  <FileUpload name="ownerIdentity" label="Owner Passport & ID (optional)" accept=".pdf,image/*" onFileChange={(file) => setValue("ownerIdentity", toDocument(file))} />
+                  <FileUpload secure name="ownerIdentity" label="Owner Passport & ID (optional)" accept="application/pdf,image/jpeg,image/png" onFileChange={(file) => setValue("ownerIdentity", toDocument(file))} onUploaded={(id, file) => setValue("ownerIdentity", toDocument(file, id))} />
                 </div>
               </div>
             )}
@@ -335,7 +339,7 @@ export default function CreateCustomerPage() {
                 <FormField label="Multi Currency" hint="Additional settlement currencies">
                   <MultiSelect options={asOptions(CURRENCIES.filter((currency) => currency !== form.defaultCurrency))} value={form.multiCurrencies} onChange={(value) => setValue("multiCurrencies", value)} />
                 </FormField>
-                <SelectField label="Pricing Model" required value={form.pricingModel} values={pricingRules.map((rule) => rule.name)} onChange={(value) => setValue("pricingModel", value)} />
+                <SelectField label="Pricing Model" required value={form.pricingModel} values={pricingModels} onChange={(value) => setValue("pricingModel", value)} />
                 <SelectField label="ADHOC Markup" value={form.adhocMarkup} values={["Yes", "No"]} onChange={(value) => setValue("adhocMarkup", value as Customer["adhocMarkup"])} />
                 <FormField label="Dynamic Pricing Fields" required error={errors.dynamicPricingFields} className="md:col-span-2">
                   <MultiSelect options={asOptions(DYNAMIC_PRICING_FIELDS)} value={form.dynamicPricingFields} onChange={(value) => setValue("dynamicPricingFields", value)} />

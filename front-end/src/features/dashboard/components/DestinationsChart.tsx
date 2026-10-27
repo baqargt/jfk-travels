@@ -9,17 +9,18 @@ import {
   YAxis,
 } from "recharts";
 import { Card } from "@/components/ui/PageHeader";
-import { topDestinations } from "@/lib/mockCharts";
 import { CHART, ChartTip, axisTick } from "./chartTheme";
 
-export default function DestinationsChart() {
+interface DestinationRow { name: string; covered: number; uncovered: number }
+
+export default function DestinationsChart({ data = [] }: { data?: DestinationRow[] }) {
   return (
     <Card
       title="Top Selling Destinations"
       description="Covered vs un-covered queries per destination"
     >
       <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={topDestinations} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={3}>
+        <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={3}>
           <CartesianGrid strokeDasharray="3 3" stroke={CHART.gridLine} vertical={false} />
           <XAxis dataKey="name" tickLine={false} axisLine={false} tick={axisTick} dy={6} interval={0} angle={0} />
           <YAxis tickLine={false} axisLine={false} tick={axisTick} width={36} allowDecimals={false} />

@@ -8,14 +8,15 @@ import {
   YAxis,
 } from "recharts";
 import { Card } from "@/components/ui/PageHeader";
-import { queriesFlow } from "@/lib/mockCharts";
 import { CHART, ChartTip, axisTick } from "./chartTheme";
 
-export default function QueriesFlowChart() {
+interface QueryFlowRow { month: string; queries: number }
+
+export default function QueriesFlowChart({ data = [] }: { data?: QueryFlowRow[] }) {
   return (
     <Card title="Month-wise Query Flow" description="Incoming customer queries · trailing 1 year">
       <ResponsiveContainer width="100%" height={280}>
-        <BarChart data={queriesFlow} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="queriesGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#60a5fa" />

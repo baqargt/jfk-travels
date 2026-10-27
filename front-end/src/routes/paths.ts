@@ -44,5 +44,7 @@ export const PATHS = {
     cash: "/limits/cash",
     credit: "/limits/credit",
     temp: "/limits/temp",
+    approvals: "/limits/approvals",
+    exchangeRates: "/limits/exchange-rates",
   },
 } as const;

@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/ui/PageHeader";
+import { apiRequest } from "@/api/client";
 import TemplateDetailModal from "@/features/pricing/components/TemplateDetailModal";
 import {
   type PricingTemplate,
@@ -21,37 +23,6 @@ const categoryVariant: Record<string, "blue" | "violet" | "amber" | "green" | "r
   "Offline MISC": "gray",
 };
 
-const mockTemplates: PricingTemplate[] = [
-  {
-    category: "Air", supplierName: "Amadeus", travelDateFrom: "2026-09-01", travelDateTo: "2026-12-31",
-    tripType: "RT", fromCountry: "UAE", toCountry: "United Kingdom", fromAirport: "DXB - Dubai International",
-    toAirport: "LHR - Heathrow", airlineCodeInclude: ["Emirates (EK)"], airlineCodeExclude: [],
-    fareCategory: "Published", classType: "Economy", passengerType: "Adult",
-    formOfPayment: "Credit Card", markupAppliedOn: "Total Fare", markupPercentage: "4.5",
-    markupAmount: "", transactionAppliedOn: "Base Fare", transactionPercentage: "1.5",
-    transactionFeeAmount: "", rebateAppliedOn: "", rebatePercentage: "", rebateAmount: "",
-    outboundRbd: "Y", inboundRbd: "B", description: "Standard Emirates RT markup",
-  },
-  {
-    category: "Hotel", supplierName: "Hotelbeds", hotelStarRating: "5 Star", country: "UAE",
-    cityName: "Dubai", hotelCityNameInclude: ["Dubai"], hotelCityNameExclude: [],
-    formOfPayment: "Credit Card", guestType: "Double", markupBasis: "Per Night",
-    markupAppliedOn: "Total Fare", markupPercentage: "12", markupAmount: "",
-    transactionBasis: "Per Night", transactionAppliedOn: "Base Fare", transactionPercentage: "3", transactionFeeAmount: "",
-    rebateBasis: "Per Night", rebateAppliedOn: "Net Fare", rebatePercentage: "2", rebateAmount: "", description: "5-star Dubai hotel markup",
-  },
-  {
-    category: "Tour", ruleName: "Summer Tour Package", supplierName: "Tourico",
-    hotelStarRating: "4 Star", country: "Turkey", cityName: "Istanbul",
-    toursPackageInclude: ["City Tour", "Desert Safari"], toursPackageExclude: [],
-    formOfPayment: "Cash", packageType: "Premium", markupBasis: "Per Person",
-    markupAppliedOn: "Total Fare", markupPercentage: "8", markupAmount: "",
-    transactionBasis: "Per Person", transactionAppliedOn: "Base Fare", transactionPercentage: "2", transactionFeeAmount: "",
-    rebateBasis: "Per Person", rebateAppliedOn: "Net Fare", rebatePercentage: "1", rebateAmount: "",
-    description: "Turkey summer tour markup",
-  },
-];
-
 function getSupplier(t: PricingTemplate) {
   return t.supplierName;
 }
@@ -68,6 +39,10 @@ function getMarkup(t: PricingTemplate) {
 }
 
 export default function TemplatesPage() {
+  const { data: templates = [], isLoading, error } = useQuery({
+    queryKey: ["pricing-templates"],
+    queryFn: () => apiRequest<PricingTemplate[]>("/pricing-templates"),
+  });
   const [detailTemplate, setDetailTemplate] = useState<PricingTemplate | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
@@ -126,11 +101,13 @@ export default function TemplatesPage() {
 
       <DataTable
         columns={columns}
-        data={mockTemplates}
+        data={templates}
         rowKey={(t) => `${t.category}-${t.supplierName}`}
         searchPlaceholder="Search templates..."
         searchKeys={["supplierName", "description"]}
       />
+      {isLoading && <p className="mt-3 text-sm text-slate-500">Loading templates...</p>}
+      {error && <p className="mt-3 text-sm text-rose-600">{error instanceof Error ? error.message : "Templates could not be loaded."}</p>}
 
       <TemplateDetailModal
         open={detailOpen}

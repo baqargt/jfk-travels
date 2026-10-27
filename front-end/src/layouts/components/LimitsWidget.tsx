@@ -1,8 +1,9 @@
+import { useQuery } from "@tanstack/react-query";
 import { Wallet } from "lucide-react";
+import { apiRequest } from "@/api/client";
+import type { FinancialAccount } from "@/api/types";
 import Dropdown from "@/components/ui/Dropdown";
-import { limitsOverview } from "@/lib/mockData";
-import { tempLimits } from "@/lib/mockFinance";
-import { fmtDate, fmtMoney, fmtMoneyCompact, pct } from "@/lib/utils";
+import { fmtMoney, fmtMoneyCompact, pct } from "@/lib/utils";
 import { PATHS } from "@/routes/paths";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +20,7 @@ function LimitBar({
   color: string;
   footer?: string;
 }) {
-  const p = pct(used, total);
+  const percentage = pct(used, total);
   return (
     <div>
       <div className="mb-1.5 flex items-baseline justify-between gap-2">
@@ -29,10 +30,7 @@ function LimitBar({
         </span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-        <div
-          className={cn("h-full rounded-full transition-all", color)}
-          style={{ width: `${p}%` }}
-        />
+        <div className={cn("h-full rounded-full transition-all", color)} style={{ width: `${percentage}%` }} />
       </div>
       {footer && <p className="mt-1 text-[10px] text-slate-400">{footer}</p>}
     </div>
@@ -40,8 +38,16 @@ function LimitBar({
 }
 
 export default function LimitsWidget() {
-  const { cash, credit, temp } = limitsOverview;
-  const soonest = [...tempLimits].sort((a, b) => a.expiresAt - b.expiresAt)[0];
+  const { data: accounts = [] } = useQuery({
+    queryKey: ["financial-accounts"],
+    queryFn: () => apiRequest<FinancialAccount[]>("/financial-accounts"),
+  });
+  const cashAccounts = accounts.filter((account) => account.accountType === "cash");
+  const creditAccounts = accounts.filter((account) => account.accountType === "credit");
+  const cashTotal = cashAccounts.reduce((sum, account) => sum + Number(account.limitAmount), 0);
+  const cashAvailable = cashAccounts.reduce((sum, account) => sum + Number(account.balance), 0);
+  const creditTotal = creditAccounts.reduce((sum, account) => sum + Number(account.limitAmount), 0);
+  const creditAvailable = creditAccounts.reduce((sum, account) => sum + Number(account.balance), 0);
 
   return (
     <Dropdown
@@ -51,9 +57,7 @@ export default function LimitsWidget() {
           <Wallet className="h-4 w-4 text-brand-600" />
           <span className="hidden leading-tight sm:block">
             <span className="block text-[10px] font-medium text-slate-400 uppercase">Cash left</span>
-            <span className="block text-xs font-bold text-slate-800 tabular-nums">
-              {fmtMoney(cash.allocated - cash.used)}
-            </span>
+            <span className="block text-xs font-bold text-slate-800 tabular-nums">{fmtMoney(cashAvailable)}</span>
           </span>
         </span>
       }
@@ -61,34 +65,29 @@ export default function LimitsWidget() {
       <div className="p-4">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-semibold text-slate-900">Limit Overview</p>
-          <a
-            href={PATHS.limits.credit}
-            className="text-xs font-medium text-brand-600 hover:text-brand-700 hover:underline"
-          >
-            Manage
-          </a>
+          <a href={PATHS.limits.credit} className="text-xs font-medium text-brand-600 hover:underline">Manage</a>
         </div>
         <div className="space-y-3.5">
           <LimitBar
             label="Cash Limit"
-            used={cash.used}
-            total={cash.allocated}
+            used={Math.max(cashTotal - cashAvailable, 0)}
+            total={cashTotal || 1}
             color="bg-emerald-500"
-            footer={`${fmtMoney(cash.allocated - cash.used)} available`}
+            footer={`${fmtMoney(cashAvailable)} available`}
           />
           <LimitBar
             label="Credit Limit"
-            used={credit.utilized}
-            total={credit.limit}
+            used={Math.max(creditTotal - creditAvailable, 0)}
+            total={creditTotal || 1}
             color="bg-brand-500"
-            footer={`Next due ${fmtDate(credit.nextDue)} · ${fmtMoney(credit.dueAmount)}`}
+            footer={`${fmtMoney(creditAvailable)} available`}
           />
           <LimitBar
             label="Temp Limits"
-            used={temp.totalAmount - (soonest?.amount - soonest?.used || 0)}
-            total={temp.totalAmount || 1}
+            used={0}
+            total={1}
             color="bg-amber-500"
-            footer={`${temp.activeCount} active extensions`}
+            footer="Temporary extensions require approval"
           />
         </div>
       </div>

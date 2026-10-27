@@ -9,9 +9,10 @@ import {
   YAxis,
 } from "recharts";
 import { Card } from "@/components/ui/PageHeader";
-import type { RankRow } from "@/lib/mockCharts";
 import { fmtNumber } from "@/lib/utils";
 import { CHART, ChartTip, axisTick } from "./chartTheme";
+
+interface RankRow { name: string; bookings: number }
 
 interface TopRankingChartProps {
   title: string;

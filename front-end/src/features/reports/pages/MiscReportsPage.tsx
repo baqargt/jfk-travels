@@ -1,10 +1,11 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
 import Badge, { StatusBadge } from "@/components/ui/Badge";
 import PageHeader from "@/components/ui/PageHeader";
 import ReportFilters from "@/features/reports/components/ReportFilters";
 import Tabs from "@/components/ui/Tabs";
-import { miscBookings } from "@/lib/mockFinance";
+import { getMiscReports } from "@/features/reports/reportApi";
 import { fmtDate, fmtMoney } from "@/lib/utils";
 import type { MiscBooking } from "@/types";
 
@@ -17,6 +18,7 @@ const serviceVariant: Record<MiscBooking["service"], "blue" | "green" | "violet"
 
 export default function MiscReportsPage() {
   const [tab, setTab] = useState("All");
+  const { data: miscBookings = [], isLoading, error } = useQuery({ queryKey: ["reports", "misc"], queryFn: getMiscReports });
 
   const tabs = [
     { id: "All", label: "All Services", count: miscBookings.length },
@@ -63,6 +65,8 @@ export default function MiscReportsPage() {
         searchPlaceholder="Search provider or reference..."
         searchKeys={["provider", "ref", "detail"]}
       />
+      {isLoading && <p className="mt-3 text-sm text-slate-500">Loading miscellaneous report...</p>}
+      {error && <p className="mt-3 text-sm text-rose-600">{error instanceof Error ? error.message : "Report could not be loaded."}</p>}
     </>
   );
 }

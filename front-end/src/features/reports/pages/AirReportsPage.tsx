@@ -1,14 +1,16 @@
 import { Search } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
 import { StatusBadge } from "@/components/ui/Badge";
 import PageHeader from "@/components/ui/PageHeader";
 import Input from "@/components/ui/Input";
 import ReportFilters from "@/features/reports/components/ReportFilters";
-import { airTickets } from "@/lib/mockReports";
+import { getAirReports } from "@/features/reports/reportApi";
 import { fmtDate, fmtMoney } from "@/lib/utils";
 import type { AirTicket } from "@/types";
 
 export default function AirReportsPage() {
+  const { data: airTickets = [], isLoading, error } = useQuery({ queryKey: ["reports", "air"], queryFn: getAirReports });
   const columns: Column<AirTicket>[] = [
     { key: "ticket", header: "Ticket No.", className: "font-mono text-xs font-semibold" },
     { key: "pnr", header: "PNR", className: "font-mono text-xs" },
@@ -54,6 +56,8 @@ export default function AirReportsPage() {
         searchPlaceholder="Search PNR, passenger, ticket..."
         searchKeys={["pnr", "passenger", "ticket", "airline"]}
       />
+      {isLoading && <p className="mt-3 text-sm text-slate-500">Loading air report...</p>}
+      {error && <p className="mt-3 text-sm text-rose-600">{error instanceof Error ? error.message : "Report could not be loaded."}</p>}
     </>
   );
 }

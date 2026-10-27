@@ -3,9 +3,14 @@ export type Role = "Administrator" | "Manager" | "Agent" | "Accounts" | "Sub Age
 export type AccountStatus = "Active" | "Inactive" | "Suspended";
 
 export interface AuthUser {
+  id: string;
   name: string;
   email: string;
   role: Role;
+  roles: Role[];
+  permissions: string[];
+  companyId: string;
+  branchId: string | null;
 }
 
 export interface AppUser {
@@ -79,6 +84,7 @@ export interface CustomerContact {
 }
 
 export interface CustomerDocument {
+  fileId?: string;
   name: string;
   type: string;
   size: number;

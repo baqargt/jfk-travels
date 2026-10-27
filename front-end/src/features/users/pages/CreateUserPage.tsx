@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleCheck, RotateCcw } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { FormField, Input, PasswordInput, Select } from "@/components/ui/Input";
 import PageHeader, { Card } from "@/components/ui/PageHeader";
-import { departments as departmentList, subCompanies } from "@/lib/mockData";
+import { apiRequest } from "@/api/client";
+import type { ApiBranch, ApiDepartment, ApiPage } from "@/api/types";
 import { PATHS } from "@/routes/paths";
 import type { Role } from "@/types";
 
@@ -63,12 +65,21 @@ const ROLE_PRESETS: Record<Role, (m: string, p: Perm) => boolean> = {
 
 export default function CreateUserPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { data: branchData } = useQuery({
+    queryKey: ["branches"],
+    queryFn: () => apiRequest<ApiPage<ApiBranch>>("/branches?page_size=100"),
+  });
+  const { data: departmentData } = useQuery({
+    queryKey: ["departments"],
+    queryFn: () => apiRequest<ApiPage<ApiDepartment>>("/departments?page_size=100"),
+  });
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("Agent");
-  const [subCompany, setSubCompany] = useState(subCompanies[0].name);
+  const [subCompany, setSubCompany] = useState("");
   const [matrix, setMatrix] = useState<Matrix>(() => {
     const m = emptyMatrix();
     MODULES.forEach((mod) => PERMS.forEach((p) => (m[mod][p] = ROLE_PRESETS.Agent(mod, p))));
@@ -84,11 +95,12 @@ export default function CreateUserPage() {
   const [empCode, setEmpCode] = useState("");
   const [mobile, setMobile] = useState("");
   const [accessProfile, setAccessProfile] = useState<string>("Manager");
-  const [department, setDepartment] = useState<string>(departmentList[0]?.name ?? "Sales");
+  const [department, setDepartment] = useState<string>("");
   const [limit, setLimit] = useState<string>("N/A");
   const [limitAmount, setLimitAmount] = useState("");
   const [customer, setCustomer] = useState<string>("All");
   const [adhocMarkup, setAdhocMarkup] = useState<string>("NO");
+  const [submitError, setSubmitError] = useState("");
 
   const applyRole = (next: Role) => {
     setRole(next);
@@ -111,12 +123,29 @@ export default function CreateUserPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 800));
-    navigate(PATHS.users, { replace: true });
+    setSubmitError("");
+    try {
+      await apiRequest("/users", {
+        method: "POST",
+        body: {
+          name: `${firstName.trim()} ${lastName.trim()}`,
+          email: email.trim(),
+          password,
+          role,
+          branchId: subCompany || null,
+          departmentId: department || null,
+        },
+      });
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+      navigate(PATHS.users, { replace: true });
+    } catch (reason) {
+      setSubmitError(reason instanceof Error ? reason.message : "User could not be created.");
+      setSaving(false);
+    }
   };
 
   const valid =
-    firstName.trim() && lastName.trim() && email.includes("@") && password.length >= 4;
+    firstName.trim() && lastName.trim() && email.includes("@") && password.length >= 10;
 
   return (
     <>
@@ -127,6 +156,7 @@ export default function CreateUserPage() {
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card title="Account Details">
+          {submitError && <p className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{submitError}</p>}
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-6">
             <FormField label="Title" required className="sm:col-span-2">
               <Select value={title} onChange={(e) => setTitle(e.target.value)}>
@@ -169,8 +199,9 @@ export default function CreateUserPage() {
 
             <FormField label="Department" className="sm:col-span-3">
               <Select value={department} onChange={(e) => setDepartment(e.target.value)}>
-                {departmentList.map((d) => (
-                  <option key={d.id} value={d.name}>{d.name}</option>
+                <option value="">No department</option>
+                {(departmentData?.items ?? []).map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
               </Select>
             </FormField>
@@ -210,8 +241,9 @@ export default function CreateUserPage() {
 
             <FormField label="Sub company" className="sm:col-span-3">
               <Select value={subCompany} onChange={(e) => setSubCompany(e.target.value)}>
-                {[{ id: "HQ", name: "Head Office" }, ...subCompanies].map((s) => (
-                  <option key={s.id}>{s.name}</option>
+                <option value="">Company-wide</option>
+                {(branchData?.items ?? []).map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </Select>
             </FormField>

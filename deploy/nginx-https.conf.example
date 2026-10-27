@@ -1,0 +1,33 @@
+server {
+    listen 80;
+    server_name erp.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name erp.example.com;
+    ssl_certificate /etc/letsencrypt/live/erp.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/erp.example.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    client_max_body_size 20m;
+    resolver 127.0.0.11 valid=10s ipv6=off;
+
+    location /api/ {
+        set $api_upstream http://api:8000;
+        proxy_pass $api_upstream;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    location /health/ {
+        set $api_upstream http://api:8000;
+        proxy_pass $api_upstream;
+    }
+    location / {
+        set $frontend_upstream http://frontend:80;
+        proxy_pass $frontend_upstream;
+    }
+}

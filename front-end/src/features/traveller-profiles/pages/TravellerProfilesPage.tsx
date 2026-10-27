@@ -1,18 +1,39 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Eye, Plus } from "lucide-react";
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Badge, { StatusBadge } from "@/components/ui/Badge";
 import PageHeader from "@/components/ui/PageHeader";
-import { travellerProfiles as seed } from "@/lib/mockData";
+import { apiRequest } from "@/api/client";
+import { apiStatus, type ApiPage, type ApiTraveller } from "@/api/types";
 import { fmtDate, fmtMoney, initials } from "@/lib/utils";
 import { PATHS } from "@/routes/paths";
 import type { TravellerProfile } from "@/types";
 
 export default function TravellerProfilesPage() {
   const [selected, setSelected] = useState<TravellerProfile | null>(null);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["travellers"],
+    queryFn: () => apiRequest<ApiPage<ApiTraveller>>("/travellers?page_size=100"),
+  });
+  const travellers: TravellerProfile[] = (data?.items ?? []).map((value) => ({
+    id: value.id,
+    name: `${value.firstName} ${value.lastName}`,
+    email: value.email,
+    phone: value.phone,
+    city: value.city,
+    country: value.country,
+    passport: value.passportMasked,
+    passportExpiry: value.passportExpiry ?? "",
+    bookings: 0,
+    lifetimeValue: 0,
+    status: apiStatus(value.status),
+    joinedAt: value.createdAt,
+    history: [],
+  }));
 
   const columns: Column<TravellerProfile>[] = [
     {
@@ -95,11 +116,13 @@ export default function TravellerProfilesPage() {
 
       <DataTable
         columns={columns}
-        data={seed}
+        data={travellers}
         rowKey={(c) => c.id}
         searchPlaceholder="Search by name, email, passport..."
         searchKeys={["name", "email", "passport", "city"]}
       />
+      {isLoading && <p className="mt-3 text-sm text-slate-500">Loading travellers...</p>}
+      {error && <p className="mt-3 text-sm text-rose-600">{error instanceof Error ? error.message : "Travellers could not be loaded."}</p>}
 
       <Modal
         open={!!selected}

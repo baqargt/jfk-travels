@@ -1,57 +1,77 @@
-import { customerSeeds } from "@/features/customers/customerData";
+import { apiRequest } from "@/api/client";
+import { apiStatus, type ApiCustomer, type ApiPage } from "@/api/types";
 import type { Customer } from "@/types";
 
-const STORAGE_KEY = "jfk.customers.v1";
-
-function isCustomer(value: unknown): value is Customer {
-  if (!value || typeof value !== "object") return false;
-  const customer = value as Partial<Customer>;
-  return typeof customer.id === "string" && typeof customer.agentCode === "string" &&
-    typeof customer.accountCode === "string" && typeof customer.name === "string" &&
-    typeof customer.admin?.email === "string";
-}
-
-export function getCustomers(): Customer[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return customerSeeds;
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.every(isCustomer) ? parsed : customerSeeds;
-  } catch {
-    return customerSeeds;
-  }
-}
-
-function nextNumber(customers: Customer[], key: "id" | "agentCode"): number {
-  return customers.reduce((max, customer) => {
-    const numeric = Number(customer[key].match(/\d+$/)?.[0] ?? 0);
-    return Math.max(max, numeric);
-  }, 0) + 1;
-}
-
-export function customerConflicts(accountCode: string, adminEmail: string): { accountCode: boolean; adminEmail: boolean } {
-  const customers = getCustomers();
-  const normalizedCode = accountCode.trim().toLowerCase();
-  const normalizedEmail = adminEmail.trim().toLowerCase();
+function fromApi(value: ApiCustomer): Customer {
+  const profile = value.profile as Partial<Customer>;
+  const blankAddress = { address: "", city: "", country: "", postalCode: "" };
   return {
-    accountCode: customers.some((customer) => customer.accountCode.trim().toLowerCase() === normalizedCode),
-    adminEmail: customers.some((customer) => customer.admin.email.trim().toLowerCase() === normalizedEmail),
+    id: value.id,
+    agentCode: value.agentCode,
+    accountCode: value.accountCode,
+    name: value.name,
+    customerTypes: profile.customerTypes ?? [],
+    customerChannels: profile.customerChannels ?? [],
+    branches: profile.branches ?? [],
+    paymentChannels: profile.paymentChannels ?? [],
+    groupCompany: profile.groupCompany ?? "",
+    locationType: profile.locationType ?? "Local",
+    businessTypes: profile.businessTypes ?? [],
+    companyAddress: profile.companyAddress ?? blankAddress,
+    billingAddress: profile.billingAddress ?? blankAddress,
+    billingSameAsCompany: profile.billingSameAsCompany ?? true,
+    telephone: value.telephone,
+    mobile: value.mobile,
+    email: value.email,
+    website: value.website,
+    logo: profile.logo ?? null,
+    tradeLicence: profile.tradeLicence ?? null,
+    tradeLicenceExpiry: profile.tradeLicenceExpiry ?? "",
+    ownerIdentity: profile.ownerIdentity ?? null,
+    quotationFlow: profile.quotationFlow ?? "No",
+    bookingOnHold: profile.bookingOnHold ?? "No",
+    notificationEmails: profile.notificationEmails ?? [],
+    profileSelection: profile.profileSelection ?? "Non-Mandatory",
+    accountManager: profile.accountManager ?? "",
+    revenueExecutive: profile.revenueExecutive ?? "",
+    controlDepartment: profile.controlDepartment ?? "",
+    b2b2b: profile.b2b2b ?? "Disabled",
+    whiteLabel: profile.whiteLabel ?? "No",
+    allowReissue: profile.allowReissue ?? "No",
+    dateTimeFormat: profile.dateTimeFormat ?? "MM/DD/YYYY",
+    defaultCurrency: value.defaultCurrency,
+    multiCurrencies: profile.multiCurrencies ?? [],
+    pricingModel: profile.pricingModel ?? "",
+    adhocMarkup: profile.adhocMarkup ?? "No",
+    dynamicPricingFields: profile.dynamicPricingFields ?? [],
+    admin: profile.admin ?? { firstName: "", lastName: "", designation: "", email: value.email },
+    accountsContact: profile.accountsContact ?? null,
+    status: apiStatus(value.status),
+    createdAt: value.createdAt,
   };
 }
 
-export function createCustomer(input: Omit<Customer, "id" | "agentCode" | "status" | "createdAt">): Customer {
-  const customers = getCustomers();
-  const conflicts = customerConflicts(input.accountCode, input.admin.email);
-  if (conflicts.accountCode) throw new Error("That account code is already in use.");
-  if (conflicts.adminEmail) throw new Error("That customer admin email is already in use.");
+export async function getCustomers(): Promise<Customer[]> {
+  const response = await apiRequest<ApiPage<ApiCustomer>>("/customers?page_size=100");
+  return response.items.map(fromApi);
+}
 
-  const customer: Customer = {
-    ...input,
-    id: `CUS-${String(nextNumber(customers, "id")).padStart(4, "0")}`,
-    agentCode: `AGT-${String(nextNumber(customers, "agentCode")).padStart(6, "0")}`,
-    status: "Active",
-    createdAt: new Date().toISOString().slice(0, 10),
-  };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify([...customers, customer]));
-  return customer;
+export async function createCustomer(
+  input: Omit<Customer, "id" | "agentCode" | "status" | "createdAt">,
+): Promise<Customer> {
+  const { accountCode, name, email, telephone, mobile, website, defaultCurrency, ...profile } = input;
+  const response = await apiRequest<ApiCustomer>("/customers", {
+    method: "POST",
+    body: {
+      accountCode,
+      name,
+      email: email || input.admin.email,
+      telephone,
+      mobile,
+      website,
+      defaultCurrency,
+      profile: { ...profile, admin: input.admin, accountsContact: input.accountsContact },
+    },
+  });
+  return fromApi(response);
 }

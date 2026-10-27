@@ -1,15 +1,15 @@
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
+import { useQuery } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/ui/Badge";
 import PageHeader from "@/components/ui/PageHeader";
 import ReportFilters from "@/features/reports/components/ReportFilters";
-import { dsrRows } from "@/lib/mockReports";
-import { users } from "@/lib/mockUsers";
+import { getDsrReports } from "@/features/reports/reportApi";
 import { fmtDate, fmtMoney } from "@/lib/utils";
 import type { DsrRow } from "@/types";
 
-const agents = [...new Set(users.map((u) => u.name))];
-
 export default function DsrReportPage() {
+  const { data: dsrRows = [], isLoading, error } = useQuery({ queryKey: ["reports", "dsr"], queryFn: getDsrReports });
+  const agents = [...new Set(dsrRows.map((row) => row.agent).filter((name) => name !== "—"))];
   const columns: Column<DsrRow>[] = [
     { key: "date", header: "Date", sortValue: (r) => r.date, render: (r) => fmtDate(r.date) },
     { key: "pnr", header: "PNR", className: "font-mono text-xs font-semibold" },
@@ -48,6 +48,8 @@ export default function DsrReportPage() {
         searchPlaceholder=""
         emptyTitle="No sales in this period"
       />
+      {isLoading && <p className="mt-3 text-sm text-slate-500">Loading daily sales report...</p>}
+      {error && <p className="mt-3 text-sm text-rose-600">{error instanceof Error ? error.message : "Report could not be loaded."}</p>}
 
       <div className="mt-4 flex flex-wrap justify-end gap-x-8 gap-y-1 px-2 text-xs text-slate-500">
         <span>

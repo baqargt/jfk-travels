@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { CircleCheck, Plus, Trash2 } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -15,6 +16,8 @@ import { airlines, cabins } from "@/lib/bookingData";
 import { ALL_TEMPLATE_CATEGORIES } from "@/types";
 import { fmtMoney } from "@/lib/utils";
 import { PATHS } from "@/routes/paths";
+import { apiRequest } from "@/api/client";
+import type { ApiPricingModel } from "@/api/types";
 
 interface RuleRow {
   id: number;
@@ -51,6 +54,7 @@ const categoryVariant: Record<string, "blue" | "violet" | "amber" | "green" | "r
 
 export default function CreatePricingModelPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [detail, setDetail] = useState("");
   const [type, setType] = useState<"Markup" | "Commission">("Markup");
@@ -62,6 +66,7 @@ export default function CreatePricingModelPage() {
   const [commissionBasis, setCommissionBasis] = useState("Base fare");
   const [rules, setRules] = useState<RuleRow[]>([newRule()]);
   const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<string>("");
@@ -93,8 +98,40 @@ export default function CreatePricingModelPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 800));
-    navigate(PATHS.pricing, { replace: true });
+    setSubmitError("");
+    try {
+      const model = await apiRequest<ApiPricingModel>("/pricing-models", {
+        method: "POST",
+        body: {
+          name: name.trim(),
+          pricingType: type,
+          scope,
+          priority: Number(priority) || 100,
+          rules: {
+            detail,
+            appliesTo,
+            percentage: firstRule?.mType === "%" ? Number(firstRule.value) || 0 : 0,
+            amount: firstRule?.mType === "$" ? Number(firstRule.value) || 0 : 0,
+            commissionPercentage: Number(commissionPct) || 0,
+            commissionBasis,
+            rows: rules,
+            templates: {
+              Air: selectedCategories.includes("Air") ? airData : null,
+              Hotel: selectedCategories.includes("Hotel") ? hotelData : null,
+              Tour: selectedCategories.includes("Tour") ? tourData : null,
+            },
+          },
+        },
+      });
+      if (active) {
+        await apiRequest(`/pricing-models/${model.id}/submit`, { method: "POST" });
+      }
+      await queryClient.invalidateQueries({ queryKey: ["pricing-models"] });
+      navigate(PATHS.pricing, { replace: true });
+    } catch (reason) {
+      setSubmitError(reason instanceof Error ? reason.message : "Pricing model could not be created.");
+      setSaving(false);
+    }
   };
 
   return (
@@ -105,6 +142,7 @@ export default function CreatePricingModelPage() {
       />
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        {submitError && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 xl:col-span-3">{submitError}</p>}
         <div className="space-y-6 xl:col-span-2">
           <Card title="Model Basics">
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">

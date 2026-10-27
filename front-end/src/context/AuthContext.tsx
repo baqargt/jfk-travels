@@ -1,65 +1,62 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { apiRequest } from "@/api/client";
+import type { ApiUser } from "@/api/types";
 import type { AuthUser, Role } from "@/types";
-import { users as systemUsers } from "@/lib/mockUsers";
 
 interface AuthContextValue {
   user: AuthUser | null;
+  loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const STORAGE_KEY = "jfk.auth.user";
-
-const DEMO_PASSWORD = "baqar+321456";
-
-const ACCOUNTS: Array<{ name: string; email: string; role: Role; status: string }> = [
-  { name: "Baqar Hassan", email: "baqar@jfktravel.com", role: "Administrator", status: "Active" },
-  ...systemUsers.map((u) => ({ name: u.name, email: u.email, role: u.role, status: u.status })),
-];
-
-function findAccount(email: string) {
-  const normalized = email.trim().toLowerCase();
-  return ACCOUNTS.find((a) => a.email.toLowerCase() === normalized);
-}
-
-function readStoredUser(): AuthUser | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as AuthUser) : null;
-  } catch {
-    return null;
-  }
+function mapUser(value: ApiUser): AuthUser {
+  const roles = value.roles.length ? value.roles : (["Agent"] as Role[]);
+  return {
+    id: value.id,
+    name: value.name,
+    email: value.email,
+    role: roles[0],
+    roles,
+    permissions: value.permissions,
+    companyId: value.companyId,
+    branchId: value.branchId,
+  };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(readStoredUser);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    apiRequest<ApiUser>("/auth/me")
+      .then((value) => active && setUser(mapUser(value)))
+      .catch(() => active && setUser(null))
+      .finally(() => active && setLoading(false));
+    return () => { active = false; };
+  }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    await new Promise((r) => setTimeout(r, 800));
-    const account = findAccount(email);
-    if (!account || password !== DEMO_PASSWORD) {
-      throw new Error("Invalid email or password.");
-    }
-    if (account.status !== "Active") {
-      throw new Error("This account is inactive or suspended. Contact your administrator.");
-    }
-    const authUser: AuthUser = {
-      name: account.name,
-      email: account.email,
-      role: account.role,
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(authUser));
-    setUser(authUser);
+    const value = await apiRequest<ApiUser>("/auth/login", {
+      method: "POST",
+      body: { email: email.trim(), password },
+      retryAuth: false,
+    });
+    setUser(mapUser(value));
   }, []);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
-    setUser(null);
+  const logout = useCallback(async () => {
+    try {
+      await apiRequest<void>("/auth/logout", { method: "POST", retryAuth: false });
+    } finally {
+      setUser(null);
+    }
   }, []);
 
-  const value = useMemo(() => ({ user, login, logout }), [user, login, logout]);
+  const value = useMemo(() => ({ user, loading, login, logout }), [user, loading, login, logout]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

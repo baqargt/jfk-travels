@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Bell, CircleCheck, Info } from "lucide-react";
 import Dropdown from "@/components/ui/Dropdown";
-import { notifications as initial } from "@/lib/mockData";
+import { apiRequest } from "@/api/client";
+import type { ApiNotification, ApiPage } from "@/api/types";
 import { cn } from "@/lib/utils";
 
 const icons = {
@@ -11,7 +12,17 @@ const icons = {
 };
 
 export default function NotificationsDropdown() {
-  const [items, setItems] = useState(initial);
+  const queryClient = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["notifications"],
+    queryFn: () => apiRequest<ApiPage<ApiNotification>>("/notifications?page_size=50"),
+    refetchInterval: 60_000,
+  });
+  const items = data?.items ?? [];
+  const markRead = useMutation({
+    mutationFn: (id: string) => apiRequest<void>(`/notifications/${id}/read`, { method: "POST" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+  });
   const unread = items.filter((n) => n.unread).length;
 
   return (
@@ -35,7 +46,7 @@ export default function NotificationsDropdown() {
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              setItems((list) => list.map((n) => ({ ...n, unread: false })));
+              items.filter((item) => item.unread).forEach((item) => markRead.mutate(item.id));
             }}
             className="text-xs font-medium text-brand-600 hover:underline"
           >
@@ -46,14 +57,14 @@ export default function NotificationsDropdown() {
           {items.map((n) => {
             const { Icon, cls } = icons[n.type];
             return (
-              <li key={n.id} className={cn("flex gap-3 px-4 py-3", n.unread && "bg-brand-50/40")}>
+              <li key={n.id} onClick={() => n.unread && markRead.mutate(n.id)} className={cn("flex cursor-pointer gap-3 px-4 py-3", n.unread && "bg-brand-50/40")}>
                 <span className={cn("mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg", cls)}>
                   <Icon className="h-4 w-4" />
                 </span>
                 <div className="min-w-0">
                   <p className="text-[13px] leading-snug font-semibold text-slate-800">{n.title}</p>
                   <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-slate-500">{n.message}</p>
-                  <p className="mt-1 text-[10px] font-medium tracking-wide text-slate-400 uppercase">{n.time}</p>
+                  <p className="mt-1 text-[10px] font-medium tracking-wide text-slate-400 uppercase">{new Date(n.createdAt).toLocaleString()}</p>
                 </div>
                 {n.unread && <span className="ml-auto mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-500" />}
               </li>

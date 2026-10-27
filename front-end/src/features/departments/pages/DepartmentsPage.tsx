@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
 import Button from "@/components/ui/Button";
@@ -7,25 +8,44 @@ import Modal from "@/components/ui/Modal";
 import { StatusBadge } from "@/components/ui/Badge";
 import StatusToggle from "@/components/ui/StatusToggle";
 import PageHeader from "@/components/ui/PageHeader";
-import { departments as seed } from "@/lib/mockData";
+import { apiRequest } from "@/api/client";
+import { apiStatus, type ApiDepartment, type ApiPage } from "@/api/types";
 import { fmtDate } from "@/lib/utils";
 import { PATHS } from "@/routes/paths";
 import type { Department } from "@/types";
 
 export default function DepartmentsPage() {
-  const [list, setList] = useState<Department[]>(seed);
+  const queryClient = useQueryClient();
   const [toDelete, setToDelete] = useState<Department | null>(null);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["departments"],
+    queryFn: () => apiRequest<ApiPage<ApiDepartment>>("/departments?page_size=100"),
+  });
+  const list: Department[] = (data?.items ?? []).map((department) => ({
+    id: department.id,
+    name: department.name,
+    head: department.headName,
+    users: department.users,
+    status: apiStatus(department.status),
+    createdAt: department.createdAt,
+  }));
+  const updateDepartment = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      apiRequest(`/departments/${id}`, { method: "PATCH", body: { status } }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["departments"] }),
+  });
+  const deactivateDepartment = useMutation({
+    mutationFn: (id: string) => apiRequest<void>(`/departments/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["departments"] }),
+  });
 
   const toggleStatus = (id: string) => {
-    setList((depts) =>
-      depts.map((d) =>
-        d.id === id ? { ...d, status: d.status === "Active" ? "Inactive" : "Active" } : d,
-      ),
-    );
+    const selected = list.find((department) => department.id === id);
+    if (selected) updateDepartment.mutate({ id, status: selected.status === "Active" ? "inactive" : "active" });
   };
 
   const confirmDelete = () => {
-    if (toDelete) setList((depts) => depts.filter((d) => d.id !== toDelete.id));
+    if (toDelete) deactivateDepartment.mutate(toDelete.id);
     setToDelete(null);
   };
 
@@ -103,19 +123,22 @@ export default function DepartmentsPage() {
         searchKeys={["name", "head"]}
       />
 
+      {isLoading && <p className="mt-3 text-sm text-slate-500">Loading departments...</p>}
+      {error && <p className="mt-3 text-sm text-rose-600">{error instanceof Error ? error.message : "Departments could not be loaded."}</p>}
+
       <Modal
         open={!!toDelete}
         onClose={() => setToDelete(null)}
-        title="Delete department?"
-        subtitle="This action cannot be undone."
+        title="Deactivate department?"
+        subtitle="Only empty departments can be deactivated."
         size="sm"
         footer={
           <>
             <Button variant="secondary" onClick={() => setToDelete(null)}>
               Cancel
             </Button>
-            <Button variant="danger" onClick={confirmDelete}>
-              Delete permanently
+            <Button variant="danger" onClick={confirmDelete} disabled={deactivateDepartment.isPending}>
+              Deactivate
             </Button>
           </>
         }

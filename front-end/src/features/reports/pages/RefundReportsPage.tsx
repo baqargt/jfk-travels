@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
 import { StatusBadge } from "@/components/ui/Badge";
 import PageHeader from "@/components/ui/PageHeader";
@@ -6,12 +7,13 @@ import ReportFilters from "@/features/reports/components/ReportFilters";
 import Tabs from "@/components/ui/Tabs";
 import StatCard from "@/components/ui/StatCard";
 import { Undo2, CircleCheck, Clock, Ban } from "lucide-react";
-import { refunds } from "@/lib/mockFinance";
+import { getRefundReports } from "@/features/reports/reportApi";
 import { fmtDate, fmtMoney } from "@/lib/utils";
 import type { RefundRecord } from "@/types";
 
 export default function RefundReportsPage() {
   const [tab, setTab] = useState("All");
+  const { data: refunds = [], isLoading, error } = useQuery({ queryKey: ["reports", "refunds"], queryFn: getRefundReports });
 
   const counts = {
     All: refunds.length,
@@ -72,6 +74,8 @@ export default function RefundReportsPage() {
         emptyTitle="No refunds in this view"
         emptyMessage="Requests appear here as soon as customers submit them."
       />
+      {isLoading && <p className="mt-3 text-sm text-slate-500">Loading refund report...</p>}
+      {error && <p className="mt-3 text-sm text-rose-600">{error instanceof Error ? error.message : "Report could not be loaded."}</p>}
 
       <p className="mt-3 flex items-center gap-1.5 px-1 text-xs text-slate-400">
         <Undo2 className="h-3.5 w-3.5" />

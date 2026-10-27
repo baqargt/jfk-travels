@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { Navigate, NavLink, useNavigate, useParams } from "react-router-dom";
+import { apiRequest } from "@/api/client";
+import type { Quote, SupplierOffer } from "@/api/types";
 import PageHeader from "@/components/ui/PageHeader";
 import ResultsGrid from "@/features/booking/components/ResultsGrid";
 import SearchForm from "@/features/booking/components/SearchForm";
 import FlightsSearchForm from "@/features/booking/components/FlightsSearchForm";
-import { filterBookingResults, filterFlightResults } from "@/features/booking/filterResults";
 import { SERVICES, serviceBySlug } from "@/features/booking/config";
-import { bookingResults } from "@/lib/bookingData";
 import { PATHS } from "@/routes/paths";
 import { cn } from "@/lib/utils";
 import type { BookingResult, BookingSearchFilters, FlightSearchFilters, TravelerCounts } from "@/types";
@@ -18,11 +18,12 @@ export default function BookingEnginePage() {
   const serviceSlug = config?.slug ?? "flights";
   const [loading, setLoading] = useState(false);
   const [travelers, setTravelers] = useState<TravelerCounts>({ adults: 1, children: 0, infants: 0 });
-  const [results, setResults] = useState<BookingResult[]>(() => bookingResults[serviceSlug] ?? []);
+  const [results, setResults] = useState<BookingResult[]>([]);
   const [formKey, setFormKey] = useState(0);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    setResults(bookingResults[serviceSlug] ?? []);
+    setResults([]);
     setLoading(false);
     setTravelers({ adults: 1, children: 0, infants: 0 });
     setFormKey((key) => key + 1);
@@ -30,34 +31,60 @@ export default function BookingEnginePage() {
 
   if (!config) return <Navigate to={PATHS.booking.flights} replace />;
 
-  const showLoading = () => {
+  const runSearch = async (filters: Record<string, unknown>) => {
     setLoading(true);
-    window.setTimeout(() => setLoading(false), 700);
+    setError("");
+    try {
+      const response = await apiRequest<{ items: SupplierOffer[] }>(`/booking-searches/${serviceSlug}`, {
+        method: "POST",
+        body: { filters },
+      });
+      setResults(response.items.map((offer) => ({
+        id: offer.id,
+        title: offer.title,
+        subtitle: offer.subtitle,
+        price: Number(offer.price),
+        meta: [["Provider", "Fake supplier"], ["Currency", offer.currency]],
+        search: filters as Record<string, string | number | boolean>,
+      })));
+    } catch (reason) {
+      setResults([]);
+      setError(reason instanceof Error ? reason.message : "Search could not be completed.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleFlightSearch = (filters: FlightSearchFilters) => {
     setTravelers(filters.travelers);
-    setResults(filterFlightResults(bookingResults.flights, filters));
-    showLoading();
+    void runSearch(filters as unknown as Record<string, unknown>);
   };
 
   const handleSearch = (filters: BookingSearchFilters) => {
-    setResults(filterBookingResults(config.slug, bookingResults[config.slug] ?? [], filters));
-    showLoading();
+    void runSearch(filters);
   };
 
   const handleReset = () => {
-    setResults(bookingResults[config.slug] ?? []);
+    setResults([]);
     setLoading(false);
     setTravelers({ adults: 1, children: 0, infants: 0 });
     setFormKey((key) => key + 1);
   };
 
-  const handleBook = (result: BookingResult) => {
-    const params = new URLSearchParams({
-      adults: String(travelers.adults), children: String(travelers.children), infants: String(travelers.infants),
-    });
-    navigate(`${PATHS.booking.passengers(result.id)}?${params.toString()}`);
+  const handleBook = async (result: BookingResult) => {
+    setError("");
+    try {
+      const quote = await apiRequest<Quote>("/quotes", {
+        method: "POST",
+        body: { serviceType: serviceSlug, offerId: result.id, search: result.search },
+      });
+      const params = new URLSearchParams({
+        adults: String(travelers.adults), children: String(travelers.children), infants: String(travelers.infants),
+      });
+      navigate(`${PATHS.booking.passengers(quote.id)}?${params.toString()}`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Quote could not be created.");
+    }
   };
 
   return (
@@ -85,12 +112,13 @@ export default function BookingEnginePage() {
       )}
 
       <section className="mt-6">
+        {error && <p className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
         <div className="mb-3 flex items-baseline justify-between gap-3 px-1">
           <h2 className="text-sm font-semibold text-slate-900">Available options <span className="font-normal text-slate-400">· {results.length} results</span></h2>
-          <p className="text-xs text-slate-400">Prices include your active pricing model (PRM-01)</p>
+          <p className="text-xs text-slate-400">Prices are repriced before confirmation</p>
         </div>
         <div key={`${config.slug}-${loading}`} className="animate-fade-up">
-          <ResultsGrid results={results} loading={loading} onBook={config.slug === "flights" ? handleBook : undefined} onReset={handleReset} />
+          <ResultsGrid results={results} loading={loading} onBook={config.slug === "flights" ? (result) => void handleBook(result) : undefined} onReset={handleReset} />
         </div>
       </section>
     </>

@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, Globe, Mail, MapPin, Phone } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import PageHeader, { Card } from "@/components/ui/PageHeader";
 import StatusToggle from "@/components/ui/StatusToggle";
+import { apiRequest } from "@/api/client";
+import type { ApiCompany, SupplierConnection } from "@/api/types";
 
-const org = {
+const fallbackOrg = {
   legalName: "JFK Travel Group LLC",
   tradingAs: "JFK Travel & Tours",
   iata: "336-4 2048 5",
@@ -28,9 +30,41 @@ const apiProviders = [
 ];
 
 export default function CompanyProfilePage() {
-  const [connections, setConnections] = useState<Record<string, boolean>>(
-    Object.fromEntries(apiProviders.map((p, i) => [p.name, i !== 3])),
-  );
+  const queryClient = useQueryClient();
+  const { data: company } = useQuery({
+    queryKey: ["company"],
+    queryFn: () => apiRequest<ApiCompany>("/company"),
+  });
+  const { data: supplierConnections = [] } = useQuery({
+    queryKey: ["supplier-connections"],
+    queryFn: () => apiRequest<SupplierConnection[]>("/supplier-connections"),
+  });
+  const toggleConnection = useMutation({
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
+      apiRequest(`/supplier-connections/${id}?enabled=${enabled}`, { method: "PATCH" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["supplier-connections"] }),
+  });
+  const org = company ? {
+    legalName: company.legalName,
+    tradingAs: company.tradingName,
+    iata: company.iataNumber,
+    uic: company.uicCode,
+    license: company.businessLicense,
+    established: "—",
+    email: company.email,
+    phone: company.phone,
+    hq: company.address,
+    currencies: [company.baseCurrency],
+  } : fallbackOrg;
+  const providers = supplierConnections.length
+    ? supplierConnections.map((connection) => ({
+        id: connection.id,
+        name: connection.providerName,
+        detail: connection.services.join(" · "),
+        key: connection.maskedKey,
+        enabled: connection.enabled,
+      }))
+    : apiProviders.map((provider) => ({ ...provider, id: provider.name, enabled: false }));
 
   return (
     <>
@@ -101,7 +135,7 @@ export default function CompanyProfilePage() {
             bodyClassName="p-0"
           >
             <ul className="divide-y divide-slate-100">
-              {apiProviders.map((p) => (
+              {providers.map((p) => (
                 <li key={p.name} className="flex items-center justify-between gap-3 px-5 py-3.5">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-slate-800">{p.name}</p>
@@ -110,8 +144,8 @@ export default function CompanyProfilePage() {
                   </div>
                   <StatusToggle
                     label={false}
-                    checked={connections[p.name]}
-                    onChange={(v) => setConnections((c) => ({ ...c, [p.name]: v }))}
+                    checked={p.enabled}
+                    onChange={(enabled) => toggleConnection.mutate({ id: p.id, enabled })}
                   />
                 </li>
               ))}

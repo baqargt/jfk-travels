@@ -2,6 +2,7 @@ import { useRef, useState, type InputHTMLAttributes, type ReactNode } from "reac
 import { UploadCloud, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/Input";
+import { uploadPrivateFile } from "@/api/files";
 
 interface FileUploadProps
   extends Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "value" | "onChange"> {
@@ -9,6 +10,8 @@ interface FileUploadProps
   required?: boolean;
   name: string;
   onFileChange?: (file: File | null) => void;
+  secure?: boolean;
+  onUploaded?: (fileId: string, file: File) => void;
 }
 
 export default function FileUpload({
@@ -16,20 +19,30 @@ export default function FileUpload({
   required,
   name,
   onFileChange,
+  secure = false,
+  onUploaded,
   className,
   ...props
 }: FileUploadProps) {
   const [file, setFile] = useState<File | null>(null);
+  const [status, setStatus] = useState<"idle" | "uploading" | "queued" | "error">("idle");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null;
     setFile(f);
     onFileChange?.(f);
+    if (secure && f) {
+      setStatus("uploading");
+      void uploadPrivateFile(f)
+        .then((id) => { setStatus("queued"); onUploaded?.(id, f); })
+        .catch(() => setStatus("error"));
+    }
   };
 
   const clear = () => {
     setFile(null);
+    setStatus("idle");
     onFileChange?.(null);
     if (inputRef.current) {
       inputRef.current.value = "";
@@ -84,6 +97,9 @@ export default function FileUpload({
         className="sr-only"
         {...props}
       />
+      {status === "uploading" && <p className="mt-1 text-xs text-slate-500">Uploading securely...</p>}
+      {status === "queued" && <p className="mt-1 text-xs text-emerald-700">Uploaded; malware scan queued.</p>}
+      {status === "error" && <p className="mt-1 text-xs text-rose-700">Upload failed. Remove the file and try again.</p>}
     </div>
   );
 }

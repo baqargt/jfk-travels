@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
 import Button from "@/components/ui/Button";
@@ -7,7 +8,8 @@ import Modal from "@/components/ui/Modal";
 import { Badge, StatusBadge } from "@/components/ui/Badge";
 import StatusToggle from "@/components/ui/StatusToggle";
 import PageHeader from "@/components/ui/PageHeader";
-import { users as seed } from "@/lib/mockUsers";
+import { apiRequest } from "@/api/client";
+import { apiStatus, type ApiPage, type ApiUser } from "@/api/types";
 import { initials } from "@/lib/utils";
 import { PATHS } from "@/routes/paths";
 import type { AppUser, Role } from "@/types";
@@ -21,19 +23,38 @@ const roleVariant: Record<Role, "red" | "violet" | "blue" | "amber" | "gray"> = 
 };
 
 export default function UsersPage() {
-  const [list, setList] = useState<AppUser[]>(seed);
+  const queryClient = useQueryClient();
   const [toDelete, setToDelete] = useState<AppUser | null>(null);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["users"],
+    queryFn: () => apiRequest<ApiPage<ApiUser>>("/users?page_size=100"),
+  });
+  const list: AppUser[] = (data?.items ?? []).map((user) => ({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.roles[0] ?? "Agent",
+    subCompany: user.branchId ?? "Head Office",
+    status: apiStatus(user.status),
+    lastLogin: user.lastLoginAt ?? "Never",
+  }));
+  const updateUser = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) =>
+      apiRequest(`/users/${id}`, { method: "PATCH", body }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
+  });
+  const deactivateUser = useMutation({
+    mutationFn: (id: string) => apiRequest<void>(`/users/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
+  });
 
   const toggleStatus = (id: string) => {
-    setList((users) =>
-      users.map((u) =>
-        u.id === id ? { ...u, status: u.status === "Active" ? "Inactive" : "Active" } : u,
-      ),
-    );
+    const selected = list.find((user) => user.id === id);
+    if (selected) updateUser.mutate({ id, body: { status: selected.status === "Active" ? "inactive" : "active" } });
   };
 
   const confirmDelete = () => {
-    if (toDelete) setList((users) => users.filter((u) => u.id !== toDelete.id));
+    if (toDelete) deactivateUser.mutate(toDelete.id);
     setToDelete(null);
   };
 
@@ -121,26 +142,29 @@ export default function UsersPage() {
         searchKeys={["name", "email", "role", "subCompany"]}
       />
 
+      {isLoading && <p className="mt-3 text-sm text-slate-500">Loading users...</p>}
+      {error && <p className="mt-3 text-sm text-rose-600">{error instanceof Error ? error.message : "Users could not be loaded."}</p>}
+
       <Modal
         open={!!toDelete}
         onClose={() => setToDelete(null)}
-        title="Delete user?"
-        subtitle="This action cannot be undone."
+        title="Deactivate user?"
+        subtitle="The account will immediately lose access."
         size="sm"
         footer={
           <>
             <Button variant="secondary" onClick={() => setToDelete(null)}>
               Cancel
             </Button>
-            <Button variant="danger" onClick={confirmDelete}>
-              Delete permanently
+            <Button variant="danger" onClick={confirmDelete} disabled={deactivateUser.isPending}>
+              Deactivate account
             </Button>
           </>
         }
       >
         <p className="text-sm text-slate-600">
-          You're about to remove <span className="font-semibold text-slate-900">{toDelete?.name}</span>{" "}
-          (<StatusBadge status="Inactive" /> account). Their booking history will be retained but
+          You're about to deactivate <span className="font-semibold text-slate-900">{toDelete?.name}</span>{" "}
+          (<StatusBadge status="Inactive" /> account). Their booking history will be retained and
           they will immediately lose system access.
         </p>
       </Modal>

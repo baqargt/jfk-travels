@@ -5,8 +5,16 @@ import { canAccess } from "@/constants/permissions";
 import { PATHS } from "@/routes/paths";
 
 export default function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const location = useLocation();
+
+  if (loading) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-slate-50 text-sm font-medium text-slate-500">
+        Loading your workspace...
+      </div>
+    );
+  }
 
   if (!user) {
     return <Navigate to={PATHS.login} replace state={{ from: location.pathname }} />;

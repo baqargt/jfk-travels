@@ -1,11 +1,12 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Plus, SlidersHorizontal } from "lucide-react";
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
 import Badge, { StatusBadge } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/ui/PageHeader";
-import { pricingRules as seed } from "@/lib/mockReports";
+import { apiRequest } from "@/api/client";
+import type { ApiPage, ApiPricingModel } from "@/api/types";
 import { fmtDate } from "@/lib/utils";
 import { PATHS } from "@/routes/paths";
 import type { PricingRule } from "@/types";
@@ -18,7 +19,22 @@ const scopeVariant: Record<string, "blue" | "violet" | "amber" | "green"> = {
 };
 
 export default function PricingModelsPage() {
-  const [rules] = useState<PricingRule[]>(seed);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["pricing-models"],
+    queryFn: () => apiRequest<ApiPage<ApiPricingModel>>("/pricing-models?page_size=100"),
+  });
+  const rules: PricingRule[] = (data?.items ?? []).map((model) => ({
+    id: model.id,
+    name: model.name,
+    type: model.pricingType,
+    scope: model.scope,
+    appliesTo: model.activeVersion ? `Version ${model.activeVersion}` : "Awaiting activation",
+    value: 0,
+    suffix: "%",
+    priority: model.priority,
+    status: model.status === "active" ? "Active" : "Inactive",
+    updatedAt: model.updatedAt,
+  }));
 
   const columns: Column<PricingRule>[] = [
     {
@@ -100,6 +116,8 @@ export default function PricingModelsPage() {
         searchPlaceholder="Search models..."
         searchKeys={["name", "appliesTo", "scope"]}
       />
+      {isLoading && <p className="mt-3 text-sm text-slate-500">Loading pricing models...</p>}
+      {error && <p className="mt-3 text-sm text-rose-600">{error instanceof Error ? error.message : "Pricing models could not be loaded."}</p>}
 
       <p className="mt-3 px-1 text-xs text-slate-400">
         Rules are evaluated by priority — the lowest number wins when multiple models match a fare.

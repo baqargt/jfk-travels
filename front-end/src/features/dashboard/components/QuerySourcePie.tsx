@@ -1,12 +1,12 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { Card } from "@/components/ui/PageHeader";
-import { querySources } from "@/lib/mockCharts";
 import { fmtNumber, pct } from "@/lib/utils";
 import { PIE_COLORS, ChartTip } from "./chartTheme";
 
-const total = querySources.reduce((sum, s) => sum + s.value, 0);
+interface SourceRow { name: string; value: number }
 
-export default function QuerySourcePie() {
+export default function QuerySourcePie({ data = [] }: { data?: SourceRow[] }) {
+  const total = data.reduce((sum, item) => sum + item.value, 0);
   return (
     <Card title="Query Source" description={`Where ${total.toLocaleString()} queries came from`}>
       <div className="relative">
@@ -14,7 +14,7 @@ export default function QuerySourcePie() {
           <PieChart>
             <Tooltip content={<ChartTip />} />
             <Pie
-              data={querySources}
+              data={data}
               dataKey="value"
               nameKey="name"
               innerRadius={58}
@@ -22,7 +22,7 @@ export default function QuerySourcePie() {
               paddingAngle={2}
               strokeWidth={0}
             >
-              {querySources.map((entry, i) => (
+              {data.map((entry, i) => (
                 <Cell key={entry.name} fill={PIE_COLORS[i % PIE_COLORS.length]} />
               ))}
             </Pie>
@@ -37,7 +37,7 @@ export default function QuerySourcePie() {
       </div>
 
       <ul className="mt-3 space-y-1.5">
-        {querySources.map((s, i) => (
+        {data.map((s, i) => (
           <li key={s.name} className="flex items-center gap-2 text-xs">
             <span
               className="h-2 w-2 shrink-0 rounded-full"

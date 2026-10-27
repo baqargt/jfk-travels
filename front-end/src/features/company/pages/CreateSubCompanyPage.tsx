@@ -1,14 +1,16 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, CircleCheck } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { Input, Select, Textarea } from "@/components/ui/Input";
 import { FormField, Label } from "@/components/ui/Input";
 import PageHeader, { Card } from "@/components/ui/PageHeader";
 import Stepper from "@/components/ui/Stepper";
-import { pricingRules } from "@/lib/mockReports";
+import type { ApiPage, ApiPricingModel } from "@/api/types";
 import { fmtMoney } from "@/lib/utils";
 import { PATHS } from "@/routes/paths";
+import { apiRequest } from "@/api/client";
 
 const STEPS = ["Company Details", "Contact & Address", "Limits & Pricing", "Review"];
 
@@ -42,16 +44,20 @@ const initial: SubCompanyDraft = {
   address: "",
   cashLimit: "25000",
   creditLimit: "50000",
-  pricingModel: pricingRules[0].name,
+  pricingModel: "",
   notes: "",
 };
 
 export default function CreateSubCompanyPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { data: pricingPage } = useQuery({ queryKey: ["pricing-models", "branch-form"], queryFn: () => apiRequest<ApiPage<ApiPricingModel>>("/pricing-models?page_size=100") });
+  const pricingModels = pricingPage?.items ?? [];
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<SubCompanyDraft>(initial);
   const [agreed, setAgreed] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const set = (key: keyof SubCompanyDraft) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -66,8 +72,28 @@ export default function CreateSubCompanyPage() {
   const handleSubmit = async (e?: FormEvent) => {
     e?.preventDefault();
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 900));
-    navigate(PATHS.company.subCompanies, { replace: true });
+    setError("");
+    try {
+      const codeBase = form.displayName.replace(/[^a-z0-9]/gi, "").slice(0, 8).toUpperCase() || "BRANCH";
+      await apiRequest("/branches", {
+        method: "POST",
+        body: {
+          code: codeBase,
+          name: form.displayName.trim(),
+          branchType: form.type,
+          location: [form.city, form.country].filter(Boolean).join(", "),
+          managerName: "",
+          currency: form.currency,
+          creditLimit: Number(form.creditLimit) || 0,
+          cashBalance: Number(form.cashLimit) || 0,
+        },
+      });
+      await queryClient.invalidateQueries({ queryKey: ["branches"] });
+      navigate(PATHS.company.subCompanies, { replace: true });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Sub-company could not be created.");
+      setSaving(false);
+    }
   };
 
   const reviewRows: [string, string][] = [
@@ -96,6 +122,7 @@ export default function CreateSubCompanyPage() {
         <Stepper steps={STEPS} current={step} />
 
         <form onSubmit={handleSubmit} className="mt-8">
+          {error && <p className="mx-auto mb-5 max-w-2xl rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
           <div className="mx-auto max-w-2xl">
             {step === 0 && (
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -162,7 +189,7 @@ export default function CreateSubCompanyPage() {
                   hint="Determines markups and commissions applied to all bookings"
                 >
                   <Select value={form.pricingModel} onChange={set("pricingModel")}>
-                    {pricingRules.map((p) => (
+                    {pricingModels.map((p) => (
                       <option key={p.id}>{p.name}</option>
                     ))}
                   </Select>

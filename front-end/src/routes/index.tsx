@@ -48,6 +48,8 @@ const router = createBrowserRouter([
       { path: "limits/cash", lazy: page(() => import("@/features/limits/pages/CashLimitPage")) },
       { path: "limits/credit", lazy: page(() => import("@/features/limits/pages/CreditLimitPage")) },
       { path: "limits/temp", lazy: page(() => import("@/features/limits/pages/TempLimitPage")) },
+      { path: "limits/approvals", lazy: page(() => import("@/features/limits/pages/ApprovalRequestsPage")) },
+      { path: "limits/exchange-rates", lazy: page(() => import("@/features/limits/pages/ExchangeRatesPage")) },
     ],
   },
   {

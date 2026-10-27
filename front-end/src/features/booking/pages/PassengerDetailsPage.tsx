@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
   CheckCircle2,
@@ -15,8 +16,9 @@ import Button from "@/components/ui/Button";
 import { FormField, Input, Label, Select, Textarea } from "@/components/ui/Input";
 import Modal from "@/components/ui/Modal";
 import PageHeader, { Card } from "@/components/ui/PageHeader";
-import { bookingResults, countries } from "@/lib/bookingData";
-import { travellerProfiles } from "@/lib/mockData";
+import { countries } from "@/lib/bookingData";
+import { apiRequest } from "@/api/client";
+import { apiStatus, type ApiPage, type ApiTraveller, type Quote } from "@/api/types";
 import { cn } from "@/lib/utils";
 import { PATHS } from "@/routes/paths";
 import type { BookingResult, TravelerCounts, TravellerProfile } from "@/types";
@@ -134,12 +136,14 @@ function splitName(name: string) {
 }
 
 function ProfileSearch({
+  profiles,
   query,
   selectedId,
   usedIds,
   onQueryChange,
   onSelect,
 }: {
+  profiles: TravellerProfile[];
   query: string;
   selectedId: string;
   usedIds: Set<string>;
@@ -148,7 +152,7 @@ function ProfileSearch({
 }) {
   const [focused, setFocused] = useState(false);
   const normalized = query.trim().toLowerCase();
-  const matches = travellerProfiles.filter((profile) => {
+  const matches = profiles.filter((profile) => {
     if (usedIds.has(profile.id) && profile.id !== selectedId) return false;
     if (!normalized) return true;
     return [profile.name, profile.email, profile.phone, profile.passport]
@@ -230,6 +234,7 @@ function CheckOption({
 }
 
 function PassengerCard({
+  profiles,
   passenger,
   passengerIndex,
   searchQuery,
@@ -240,6 +245,7 @@ function PassengerCard({
   onSelectProfile,
   onChange,
 }: {
+  profiles: TravellerProfile[];
   passenger: PassengerForm;
   passengerIndex: number;
   searchQuery: string;
@@ -290,6 +296,7 @@ function PassengerCard({
           <div className="mb-6">
             <Label>Search Traveller Profile</Label>
             <ProfileSearch
+              profiles={profiles}
               query={searchQuery}
               selectedId={passenger.profileId}
               usedIds={usedProfileIds}
@@ -428,7 +435,38 @@ export default function PassengerDetailsPage() {
   const { resultId } = useParams<{ resultId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const result = bookingResults.flights.find((flight) => flight.id === resultId);
+  const { data: quote, isLoading: quoteLoading, error: quoteError } = useQuery({
+    queryKey: ["quote", resultId],
+    queryFn: () => apiRequest<Quote>(`/quotes/${resultId}`),
+    enabled: Boolean(resultId),
+  });
+  const { data: travellerData } = useQuery({
+    queryKey: ["travellers"],
+    queryFn: () => apiRequest<ApiPage<ApiTraveller>>("/travellers?page_size=100"),
+  });
+  const travellerProfiles: TravellerProfile[] = (travellerData?.items ?? []).map((value) => ({
+    id: value.id,
+    name: `${value.firstName} ${value.lastName}`,
+    email: value.email,
+    phone: value.phone,
+    city: value.city,
+    country: value.country,
+    passport: value.passportMasked,
+    passportExpiry: value.passportExpiry ?? "",
+    bookings: 0,
+    lifetimeValue: 0,
+    status: apiStatus(value.status),
+    joinedAt: value.createdAt,
+    history: [],
+  }));
+  const result: BookingResult | undefined = quote ? {
+    id: quote.id,
+    title: quote.offer.title,
+    subtitle: quote.offer.subtitle,
+    price: Number(quote.totalAmount),
+    meta: [["Provider", "Fake supplier"], ["Currency", quote.currency]],
+    search: {},
+  } : undefined;
   const counts = parseCounts(searchParams);
   const [passengers, setPassengers] = useState<PassengerForm[]>(() => createPassengers(counts ?? defaultCounts));
   const [searchQueries, setSearchQueries] = useState<Record<string, string>>({});
@@ -437,19 +475,23 @@ export default function PassengerDetailsPage() {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [holdAvailability, setHoldAvailability] = useState<"N/A" | "Available">("Available");
   const [outcome, setOutcome] = useState<{ action: BookingAction; reference: string } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [apiError, setApiError] = useState("");
 
   const countryOptions = useMemo(
     () => Array.from(new Set([...countries, ...travellerProfiles.map((profile) => profile.country)])).sort(),
-    [],
+    [travellerProfiles],
   );
   const usedProfileIds = useMemo(
     () => new Set(passengers.map((passenger) => passenger.profileId).filter(Boolean)),
     [passengers],
   );
 
-  if (!result || !counts) {
+  if (!counts) {
     return <Navigate to={PATHS.booking.flights} replace />;
   }
+  if (quoteLoading) return <p className="p-8 text-sm text-slate-500">Loading repriced quote...</p>;
+  if (!result || quoteError) return <Navigate to={PATHS.booking.flights} replace />;
 
   const updatePassenger = <K extends keyof PassengerForm>(index: number, field: K, value: PassengerForm[K]) => {
     setPassengers((current) => current.map((passenger, passengerIndex) =>
@@ -533,11 +575,30 @@ export default function PassengerDetailsPage() {
     return true;
   };
 
-  const completeAction = (action: BookingAction) => {
+  const completeAction = async (action: BookingAction) => {
     if (!validate(action)) return;
-    const prefix = action === "hold" ? "HLD" : action === "cart" ? "CRT" : "BKG";
-    setOutcome({ action, reference: `${prefix}-${Date.now().toString().slice(-6)}` });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (action !== "payment") return;
+    setSubmitting(true);
+    setApiError("");
+    try {
+      const booking = await apiRequest<{ reference: string }>(`/quotes/${resultId}/confirm`, {
+        method: "POST",
+        headers: { "Idempotency-Key": crypto.randomUUID() },
+        body: {
+          passengers: passengers.map((passenger) => ({
+            travellerId: passenger.profileId || null,
+            passengerType: passenger.type.toLowerCase(),
+            snapshot: passenger,
+          })),
+        },
+      });
+      setOutcome({ action, reference: booking.reference });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (reason) {
+      setApiError(reason instanceof Error ? reason.message : "Booking could not be confirmed.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleSubmit = (event: FormEvent) => event.preventDefault();
@@ -560,16 +621,19 @@ export default function PassengerDetailsPage() {
           <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
           <div>
             <p className="text-sm font-semibold text-emerald-900">{actionCopy}</p>
-            <p className="text-xs text-emerald-700">Reference {outcome.reference} · This is a demo and no data was persisted.</p>
+            <p className="text-xs text-emerald-700">Reference {outcome.reference} · Booking saved successfully.</p>
           </div>
         </div>
       )}
 
       <ItinerarySummary result={result} passengerCount={passengers.length} />
 
+      {apiError && <p className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{apiError}</p>}
+
       <form onSubmit={handleSubmit} className="mt-6 space-y-5" noValidate>
         {passengers.map((passenger, index) => (
           <PassengerCard
+            profiles={travellerProfiles}
             key={passenger.id}
             passenger={passenger}
             passengerIndex={index}
@@ -618,17 +682,17 @@ export default function PassengerDetailsPage() {
               <Eye className="h-4 w-4" />
               Preview Details
             </Button>
-            <Button variant="secondary" onClick={() => completeAction("hold")} disabled={holdAvailability === "N/A"}>
+            <Button variant="secondary" disabled title="Hold workflow is unavailable for the fake supplier">
               <Clock3 className="h-4 w-4" />
               Hold Booking
             </Button>
-            <Button variant="secondary" onClick={() => completeAction("cart")}>
+            <Button variant="secondary" disabled title="Cart workflow is unavailable for the fake supplier">
               <ShoppingCart className="h-4 w-4" />
               Add to Cart
             </Button>
-            <Button onClick={() => completeAction("payment")}>
+            <Button onClick={() => void completeAction("payment")} disabled={submitting || Boolean(outcome)}>
               <CreditCard className="h-4 w-4" />
-              Pay & Confirm
+              {submitting ? "Confirming..." : "Pay & Confirm"}
             </Button>
           </div>
         </Card>

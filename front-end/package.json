@@ -6,17 +6,22 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "generate:api": "openapi-typescript ../back-end/openapi.json -o src/api/generated.ts",
     "preview": "vite preview",
     "typecheck": "tsc"
   },
   "dependencies": {
+    "@hookform/resolvers": "^6.0.1",
+    "@tanstack/react-query": "^5.105.0",
     "clsx": "^2.1.1",
     "lucide-react": "^1.33.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-hook-form": "^7.91.0",
     "react-router-dom": "^6.30.0",
     "recharts": "^3.10.1",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -24,8 +29,9 @@
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^6.1.0",
+    "openapi-typescript": "^7.13.0",
     "tailwindcss": "^4.3.3",
-    "typescript": "^7.0.2",
+    "typescript": "^5.9.3",
     "vite": "^8.2.2"
   }
 }

@@ -150,6 +150,8 @@ export const NAV_GROUPS: NavGroup[] = [
           { label: "Cash Limit", icon: Wallet, path: PATHS.limits.cash },
           { label: "Credit Limit", icon: CreditCard, path: PATHS.limits.credit },
           { label: "Temp Limit", icon: Timer, path: PATHS.limits.temp },
+          { label: "Approvals", icon: ShieldCheck, path: PATHS.limits.approvals },
+          { label: "Exchange Rates", icon: Repeat, path: PATHS.limits.exchangeRates },
         ],
       },
     ],

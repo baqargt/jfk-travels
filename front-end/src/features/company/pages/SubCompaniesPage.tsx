@@ -1,17 +1,33 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
 import Badge, { StatusBadge } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/ui/PageHeader";
-import { subCompanies as seed } from "@/lib/mockData";
+import { apiRequest } from "@/api/client";
+import { apiStatus, type ApiBranch, type ApiPage } from "@/api/types";
 import { fmtDate, fmtMoney } from "@/lib/utils";
 import { PATHS } from "@/routes/paths";
 import type { SubCompany } from "@/types";
 
 export default function SubCompaniesPage() {
-  const [companies] = useState<SubCompany[]>(seed);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["branches"],
+    queryFn: () => apiRequest<ApiPage<ApiBranch>>("/branches?page_size=100"),
+  });
+  const companies: SubCompany[] = (data?.items ?? []).map((branch) => ({
+    id: branch.id,
+    name: branch.name,
+    type: branch.branchType,
+    location: branch.location,
+    manager: branch.managerName,
+    users: branch.users,
+    creditLimit: Number(branch.creditLimit),
+    cashBalance: Number(branch.cashBalance),
+    status: apiStatus(branch.status),
+    createdAt: branch.createdAt,
+  }));
 
   const columns: Column<SubCompany>[] = [
     {
@@ -73,6 +89,8 @@ export default function SubCompaniesPage() {
         searchPlaceholder="Search by name, city or manager..."
         searchKeys={["name", "location", "manager"]}
       />
+      {isLoading && <p className="mt-3 text-sm text-slate-500">Loading sub-companies...</p>}
+      {error && <p className="mt-3 text-sm text-rose-600">{error instanceof Error ? error.message : "Sub-companies could not be loaded."}</p>}
     </>
   );
 }
