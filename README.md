@@ -4,7 +4,7 @@ React/Vite frontend with a FastAPI API, PostgreSQL, Redis/Celery and private Min
 
 ## Deployment profiles and feature flags
 
-Optional infrastructure must be controlled with environment flags instead of commenting out application code. The full profile uses Redis/Celery, S3-compatible storage and ClamAV:
+Optional application integrations are controlled with environment flags. The corresponding Redis/Celery, S3-compatible storage and ClamAV service blocks are temporarily commented in `compose.yaml` for the low-memory deployment:
 
 ```env
 REDIS_ENABLED=true
@@ -65,11 +65,7 @@ These commands must remain idempotent and use database locking. Before switching
    docker compose up --build
    ```
 
-   To also start Redis, Celery worker/beat, S3-compatible storage and ClamAV, first enable the related flags in `.env`, then run:
-
-   ```sh
-   docker compose --profile full up --build
-   ```
+   Redis, Celery worker/beat, S3-compatible storage and ClamAV are temporarily disabled in `compose.yaml`. To restore the full stack later, uncomment their service and volume blocks, enable the related flags in `.env`, and then use the `full` profile.
 
 3. Open `http://localhost:8080`. The development seed creates the administrator and manager from `.env` (`ADMIN_EMAIL`, `ADMIN_PASSWORD`, `MANAGER_EMAIL`, `MANAGER_PASSWORD`). Change these values before the first start.
 
