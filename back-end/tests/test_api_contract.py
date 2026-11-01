@@ -16,6 +16,8 @@ def test_openapi_contains_public_contract() -> None:
     expected = {
         "/api/v1/auth/login",
         "/api/v1/auth/refresh",
+        "/api/v1/auth/me",
+        "/api/v1/auth/password",
         "/api/v1/company",
         "/api/v1/customers",
         "/api/v1/travellers",

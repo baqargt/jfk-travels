@@ -38,13 +38,15 @@ export default function ProfileDropdown() {
         </div>
         <ul className="p-1.5">
           {[
-            { label: "Profile Settings", icon: Settings },
-            { label: "Change Password", icon: Lock },
-            { label: "Help & Support", icon: LifeBuoy },
-          ].map(({ label, icon: Icon }) => (
+            { label: "Profile Settings", icon: Settings, path: PATHS.account.profile },
+            { label: "Change Password", icon: Lock, path: PATHS.account.password },
+            { label: "Help & Support", icon: LifeBuoy, path: undefined },
+          ].map(({ label, icon: Icon, path }) => (
             <li key={label}>
               <button
                 type="button"
+                onClick={() => path && navigate(path)}
+                disabled={!path}
                 className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
               >
                 <Icon className="h-4 w-4 text-slate-400" />

@@ -1,6 +1,10 @@
 export const PATHS = {
   login: "/login",
   dashboard: "/dashboard",
+  account: {
+    profile: "/account/profile",
+    password: "/account/password",
+  },
   booking: {
     root: "/booking",
     list: "/booking/bookings",

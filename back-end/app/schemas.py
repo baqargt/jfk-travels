@@ -42,6 +42,16 @@ class UserOut(ApiModel):
     last_login_at: datetime | None = None
 
 
+class ProfileUpdate(ApiModel):
+    name: str = Field(min_length=2, max_length=180)
+    email: EmailStr
+
+
+class PasswordChangeInput(ApiModel):
+    current_password: str = Field(min_length=8, max_length=128)
+    new_password: str = Field(min_length=10, max_length=128)
+
+
 class CompanyOut(ApiModel):
     id: uuid.UUID
     legal_name: str

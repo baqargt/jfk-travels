@@ -23,6 +23,8 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to={PATHS.dashboard} replace /> },
       { path: "dashboard", lazy: page(() => import("@/features/dashboard/pages/DashboardPage")) },
+      { path: "account/profile", lazy: page(() => import("@/features/account/pages/ProfileSettingsPage")) },
+      { path: "account/password", lazy: page(() => import("@/features/account/pages/ChangePasswordPage")) },
       { path: "booking", element: <Navigate to={PATHS.booking.flights} replace /> },
       { path: "booking/bookings", lazy: page(() => import("@/features/booking/pages/BookingsPage")) },
       { path: "booking/flights/:resultId/passengers", lazy: page(() => import("@/features/booking/pages/PassengerDetailsPage")) },

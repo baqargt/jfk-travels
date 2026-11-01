@@ -2,16 +2,19 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user, require_csrf
-from app.errors import ApiError
+from app.errors import ApiError, conflict
 from app.models import RefreshSession, User
-from app.schemas import LoginInput, UserOut
+from app.schemas import LoginInput, PasswordChangeInput, ProfileUpdate, UserOut
 from app.security import (
     create_access_token,
+    decode_access_token,
+    hash_password,
     new_csrf_token,
     new_refresh_token,
     token_hash,
@@ -136,3 +139,50 @@ def logout(
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(get_current_user)):
     return user_payload(user)
+
+
+@router.patch("/me", response_model=UserOut, dependencies=[Depends(require_csrf)])
+def update_me(
+    data: ProfileUpdate,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user.display_name = data.name.strip()
+    user.email = str(data.email).lower()
+    audit(db, request, user, "auth.profile.update", "user", user.id)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise conflict("That email address is already in use.") from exc
+    return user_payload(user)
+
+
+@router.put("/password", status_code=204, dependencies=[Depends(require_csrf)])
+def change_password(
+    data: PasswordChangeInput,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not verify_password(data.current_password, user.password_hash):
+        raise ApiError(400, "Password not changed", "The current password is incorrect.")
+    if data.current_password == data.new_password:
+        raise ApiError(400, "Password not changed", "The new password must be different.")
+
+    current_session_id = decode_access_token(request.cookies["jfk_access"])["sid"]
+
+    user.password_hash = hash_password(data.new_password)
+    now = datetime.now(UTC)
+    sessions = db.scalars(
+        select(RefreshSession).where(
+            RefreshSession.user_id == user.id,
+            RefreshSession.revoked_at.is_(None),
+        )
+    ).all()
+    for session in sessions:
+        if str(session.id) != current_session_id:
+            session.revoked_at = now
+    audit(db, request, user, "auth.password.change", "user", user.id)
+    db.commit()
