@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import EmailStr, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,10 +25,10 @@ class Settings(BaseSettings):
     file_uploads_enabled: bool = True
     local_storage_path: str = "/var/lib/jfk-erp/uploads"
 
-    admin_email: str = "admin@jfktravel.com"
+    admin_email: EmailStr = "admin@jfktravel.com"
     admin_password: str = "change-me-now"
     admin_name: str = "JFK Administrator"
-    manager_email: str = "manager@jfktravel.com"
+    manager_email: EmailStr = "manager@jfktravel.com"
     manager_password: str = "change-me-manager"
 
     redis_url: str = "redis://localhost:6379/0"

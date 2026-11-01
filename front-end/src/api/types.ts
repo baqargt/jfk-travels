@@ -199,6 +199,19 @@ export interface Quote {
   offer: SupplierOffer;
 }
 
+export interface ApiBooking {
+  id: string;
+  reference: string;
+  supplierReference: string;
+  serviceType: string;
+  status: string;
+  currency: string;
+  totalAmount: string;
+  details: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ApiPricingModel {
   id: string;
   name: string;

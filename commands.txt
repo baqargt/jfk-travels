@@ -1,0 +1,5 @@
+docker compose exec db sh -lc 'psql -U "jfk" -d "change-me-strong-database-password"'
+
+POSTGRES_DB=jfk_erp
+POSTGRES_USER=jfk
+POSTGRES_PASSWORD=change-me-strong-database-password

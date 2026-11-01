@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -619,9 +619,17 @@ export default function PassengerDetailsPage() {
       {outcome && (
         <div className="mb-5 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3" role="status" aria-live="polite">
           <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
-          <div>
+          <div className="flex-1">
             <p className="text-sm font-semibold text-emerald-900">{actionCopy}</p>
             <p className="text-xs text-emerald-700">Reference {outcome.reference} · Booking saved successfully.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link to={PATHS.booking.list}>
+                <Button size="sm">View Completed Bookings</Button>
+              </Link>
+              <Link to={PATHS.booking.flights}>
+                <Button size="sm" variant="secondary">Create Another Booking</Button>
+              </Link>
+            </div>
           </div>
         </div>
       )}

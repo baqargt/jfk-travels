@@ -24,6 +24,7 @@ const router = createBrowserRouter([
       { index: true, element: <Navigate to={PATHS.dashboard} replace /> },
       { path: "dashboard", lazy: page(() => import("@/features/dashboard/pages/DashboardPage")) },
       { path: "booking", element: <Navigate to={PATHS.booking.flights} replace /> },
+      { path: "booking/bookings", lazy: page(() => import("@/features/booking/pages/BookingsPage")) },
       { path: "booking/flights/:resultId/passengers", lazy: page(() => import("@/features/booking/pages/PassengerDetailsPage")) },
       { path: "booking/:service", lazy: page(() => import("@/features/booking/pages/BookingEnginePage")) },
       { path: "company/profile", lazy: page(() => import("@/features/company/pages/CompanyProfilePage")) },

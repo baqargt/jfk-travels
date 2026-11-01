@@ -10,6 +10,7 @@ import {
   Hotel,
   Layers,
   LayoutDashboard,
+  ListChecks,
   Percent,
   Plane,
   Repeat,
@@ -57,6 +58,7 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Booking Engine",
         icon: Plane,
         children: [
+          { label: "Completed Bookings", icon: ListChecks, path: PATHS.booking.list },
           { label: "Flights", icon: Plane, path: PATHS.booking.flights },
           { label: "Hotels", icon: Hotel, path: PATHS.booking.hotels },
           { label: "Insurance", icon: ShieldCheck, path: PATHS.booking.insurance },

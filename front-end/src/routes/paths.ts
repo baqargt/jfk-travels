@@ -3,6 +3,7 @@ export const PATHS = {
   dashboard: "/dashboard",
   booking: {
     root: "/booking",
+    list: "/booking/bookings",
     flights: "/booking/flights",
     passengers: (resultId: string) => `/booking/flights/${resultId}/passengers`,
     hotels: "/booking/hotels",
