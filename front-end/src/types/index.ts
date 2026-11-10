@@ -34,6 +34,9 @@ export interface TravellerBookingHistory {
 export interface TravellerProfile {
   id: string;
   name: string;
+  title: string;
+  firstName: string;
+  lastName: string;
   email: string;
   phone: string;
   city: string;

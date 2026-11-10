@@ -95,6 +95,7 @@ export interface ApiTraveller {
   phone: string;
   city: string;
   country: string;
+  dateOfBirth: string | null;
   passportMasked: string;
   passportExpiry: string | null;
   preferences: Record<string, unknown>;

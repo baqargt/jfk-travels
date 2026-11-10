@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { Eye, Plus } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Archive, Eye, Pencil, Plus } from "lucide-react";
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -14,26 +14,43 @@ import { PATHS } from "@/routes/paths";
 import type { TravellerProfile } from "@/types";
 
 export default function TravellerProfilesPage() {
+  const queryClient = useQueryClient();
   const [selected, setSelected] = useState<TravellerProfile | null>(null);
+  const [toArchive, setToArchive] = useState<TravellerProfile | null>(null);
   const { data, isLoading, error } = useQuery({
     queryKey: ["travellers"],
     queryFn: () => apiRequest<ApiPage<ApiTraveller>>("/travellers?page_size=100"),
   });
-  const travellers: TravellerProfile[] = (data?.items ?? []).map((value) => ({
-    id: value.id,
-    name: `${value.firstName} ${value.lastName}`,
-    email: value.email,
-    phone: value.phone,
-    city: value.city,
-    country: value.country,
-    passport: value.passportMasked,
-    passportExpiry: value.passportExpiry ?? "",
-    bookings: 0,
-    lifetimeValue: 0,
-    status: apiStatus(value.status),
-    joinedAt: value.createdAt,
-    history: [],
-  }));
+  const archiveTraveller = useMutation({
+    mutationFn: (id: string) => apiRequest<void>(`/travellers/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["travellers"] });
+      setSelected(null);
+      setToArchive(null);
+    },
+  });
+
+  const travellers: TravellerProfile[] = (data?.items ?? []).map((value) => {
+    const title = typeof value.preferences?.title === "string" ? value.preferences.title : "";
+    return {
+      id: value.id,
+      name: `${value.firstName} ${value.lastName}`,
+      title,
+      firstName: value.firstName,
+      lastName: value.lastName,
+      email: value.email,
+      phone: value.phone,
+      city: value.city,
+      country: value.country,
+      passport: value.passportMasked,
+      passportExpiry: value.passportExpiry ?? "",
+      bookings: 0,
+      lifetimeValue: 0,
+      status: apiStatus(value.status),
+      joinedAt: value.createdAt,
+      history: [],
+    };
+  });
 
   const columns: Column<TravellerProfile>[] = [
     {
@@ -83,18 +100,37 @@ export default function TravellerProfilesPage() {
       headerClassName: "!text-right",
       className: "!text-right",
       render: (c) => (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="!h-8 !w-8 text-slate-400 hover:text-brand-600"
-          title="View profile"
-          onClick={(e) => {
-            e.stopPropagation();
-            setSelected(c);
-          }}
-        >
-          <Eye className="h-4 w-4" />
-        </Button>
+        <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="!h-8 !w-8 text-slate-400 hover:text-brand-600"
+            title="View profile"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelected(c);
+            }}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          <Link to={PATHS.editTravellerProfile(c.id)} title="Edit profile" onClick={(e) => e.stopPropagation()}>
+            <Button variant="ghost" size="icon" className="!h-8 !w-8 text-slate-400 hover:text-brand-600">
+              <Pencil className="h-4 w-4" />
+            </Button>
+          </Link>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="!h-8 !w-8 text-slate-400 hover:text-rose-600"
+            title="Archive profile"
+            onClick={(e) => {
+              e.stopPropagation();
+              setToArchive(c);
+            }}
+          >
+            <Archive className="h-4 w-4" />
+          </Button>
+        </div>
       ),
     },
   ];
@@ -127,11 +163,31 @@ export default function TravellerProfilesPage() {
       <Modal
         open={!!selected}
         onClose={() => setSelected(null)}
-        title={selected?.name ?? ""}
-        subtitle={selected ? `${selected.id} · Traveller since ${fmtDate(selected.joinedAt)}` : ""}
+        title={
+          selected
+            ? `Traveller Profile — ${[selected.title, selected.firstName].filter(Boolean).join(" ")}`
+            : ""
+        }
+        subtitle={selected ? `${selected.name} · ${selected.id} · Traveller since ${fmtDate(selected.joinedAt)}` : ""}
         size="lg"
         footer={
           <>
+            <Button
+              variant="secondary"
+              className="text-rose-600 hover:bg-rose-50"
+              onClick={() => selected && setToArchive(selected)}
+            >
+              <Archive className="h-4 w-4" />
+              Archive
+            </Button>
+            {selected && (
+              <Link to={PATHS.editTravellerProfile(selected.id)}>
+                <Button variant="secondary">
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </Button>
+              </Link>
+            )}
             <Button variant="secondary" onClick={() => setSelected(null)}>
               Close
             </Button>
@@ -189,6 +245,34 @@ export default function TravellerProfilesPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        open={!!toArchive}
+        onClose={() => setToArchive(null)}
+        title="Archive traveller?"
+        subtitle="The profile will be marked inactive and hidden from active use."
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setToArchive(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => toArchive && archiveTraveller.mutate(toArchive.id)}
+              disabled={archiveTraveller.isPending}
+            >
+              Archive profile
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600">
+          You're about to archive{" "}
+          <span className="font-semibold text-slate-900">{toArchive?.name}</span>
+          {" "}(<StatusBadge status="Inactive" />). Booking history will be retained.
+        </p>
       </Modal>
     </>
   );

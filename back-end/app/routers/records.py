@@ -213,6 +213,24 @@ def create_traveller(
     return _traveller_out(traveller)
 
 
+@router.get("/travellers/{traveller_id}")
+def get_traveller(
+    traveller_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    traveller = db.scalar(
+        select(Traveller).where(
+            Traveller.id == traveller_id,
+            Traveller.company_id == user.company_id,
+            branch_scope(Traveller.branch_id, user),
+        )
+    )
+    if not traveller:
+        raise not_found("Traveller")
+    return _traveller_out(traveller)
+
+
 @router.put("/travellers/{traveller_id}", dependencies=write_access)
 def update_traveller(
     traveller_id: uuid.UUID,
@@ -238,6 +256,27 @@ def update_traveller(
     audit(db, request, user, "traveller.update", "traveller", traveller.id)
     db.commit()
     return _traveller_out(traveller)
+
+
+@router.delete("/travellers/{traveller_id}", status_code=204, dependencies=write_access)
+def archive_traveller(
+    traveller_id: uuid.UUID,
+    request: Request,
+    user: User = Depends(require_roles("Administrator", "Manager", "Agent", "Sub Agent")),
+    db: Session = Depends(get_db),
+):
+    traveller = db.scalar(
+        select(Traveller).where(
+            Traveller.id == traveller_id,
+            Traveller.company_id == user.company_id,
+            branch_scope(Traveller.branch_id, user),
+        )
+    )
+    if not traveller:
+        raise not_found("Traveller")
+    traveller.status = "inactive"
+    audit(db, request, user, "traveller.archive", "traveller", traveller.id)
+    db.commit()
 
 
 @router.get("/pricing-models", response_model=Page)

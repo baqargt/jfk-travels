@@ -40,6 +40,7 @@ const router = createBrowserRouter([
       { path: "users/new", lazy: page(() => import("@/features/users/pages/CreateUserPage")) },
       { path: "traveller-profiles", lazy: page(() => import("@/features/traveller-profiles/pages/TravellerProfilesPage")) },
       { path: "traveller-profiles/new", lazy: page(() => import("@/features/traveller-profiles/pages/CreateTravellerProfilePage")) },
+      { path: "traveller-profiles/:travellerId/edit", lazy: page(() => import("@/features/traveller-profiles/pages/CreateTravellerProfilePage")) },
       { path: "pricing", lazy: page(() => import("@/features/pricing/pages/PricingModelsPage")) },
       { path: "pricing/new", lazy: page(() => import("@/features/pricing/pages/CreatePricingModelPage")) },
       { path: "pricing/templates", lazy: page(() => import("@/features/pricing/pages/TemplatesPage")) },

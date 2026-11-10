@@ -35,6 +35,7 @@ export const PATHS = {
   createUser: "/users/new",
   travellerProfiles: "/traveller-profiles",
   createTravellerProfile: "/traveller-profiles/new",
+  editTravellerProfile: (id: string) => `/traveller-profiles/${id}/edit`,
   pricing: "/pricing",
   createPricing: "/pricing/new",
   templates: "/pricing/templates",

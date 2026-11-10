@@ -447,6 +447,9 @@ export default function PassengerDetailsPage() {
   const travellerProfiles: TravellerProfile[] = (travellerData?.items ?? []).map((value) => ({
     id: value.id,
     name: `${value.firstName} ${value.lastName}`,
+    title: typeof value.preferences?.title === "string" ? value.preferences.title : "",
+    firstName: value.firstName,
+    lastName: value.lastName,
     email: value.email,
     phone: value.phone,
     city: value.city,
@@ -510,8 +513,9 @@ export default function PassengerDetailsPage() {
     setPassengers((current) => current.map((passenger, passengerIndex) => passengerIndex === index ? {
       ...passenger,
       profileId: profile.id,
-      firstName: name.firstName,
-      lastName: name.lastName,
+      title: profile.title || passenger.title,
+      firstName: profile.firstName || name.firstName,
+      lastName: profile.lastName || name.lastName,
       passportNumber: profile.passport,
       passportExpiry: profile.passportExpiry,
       nationality: profile.country,
@@ -523,7 +527,7 @@ export default function PassengerDetailsPage() {
     setSearchQueries((current) => ({ ...current, [passengers[index].id]: profile.name }));
     setErrors((current) => {
       const next = { ...current };
-      ["profileId", "firstName", "lastName", "passportNumber", "passportExpiry", "nationality", "originMobile", "email"]
+      ["profileId", "title", "firstName", "lastName", "passportNumber", "passportExpiry", "nationality", "originMobile", "email"]
         .forEach((field) => delete next[`${passengers[index].id}.${field}`]);
       return next;
     });
