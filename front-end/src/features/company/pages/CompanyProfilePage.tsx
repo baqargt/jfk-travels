@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, Globe, Mail, MapPin, Phone } from "lucide-react";
 import Badge from "@/components/ui/Badge";
@@ -6,6 +7,7 @@ import PageHeader, { Card } from "@/components/ui/PageHeader";
 import StatusToggle from "@/components/ui/StatusToggle";
 import { apiRequest } from "@/api/client";
 import type { ApiCompany, SupplierConnection } from "@/api/types";
+import { PATHS } from "@/routes/paths";
 
 const fallbackOrg = {
   legalName: "JFK Travel Group LLC",
@@ -72,10 +74,12 @@ export default function CompanyProfilePage() {
         title="Company Profile"
         description="Organization identity, licensing and supplier API configurations."
         actions={
-          <Button variant="secondary">
-            <Building2 className="h-4 w-4" />
-            Edit Profile
-          </Button>
+          <Link to={PATHS.company.editProfile}>
+            <Button variant="secondary">
+              <Building2 className="h-4 w-4" />
+              Edit Profile
+            </Button>
+          </Link>
         }
       />
 

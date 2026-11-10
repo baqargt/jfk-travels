@@ -81,7 +81,7 @@ export default function DepartmentsPage() {
       className: "!text-right",
       render: (d) => (
         <div className="flex justify-end gap-1">
-          <Link to={PATHS.departments.create} title="Edit department">
+          <Link to={PATHS.departments.edit(d.id)} title="Edit department">
             <Button variant="ghost" size="icon" className="!h-8 !w-8 text-slate-400 hover:text-brand-600">
               <Pencil className="h-4 w-4" />
             </Button>

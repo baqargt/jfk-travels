@@ -153,6 +153,28 @@ def create_branch(
     return BranchOut.model_validate(branch)
 
 
+@router.get("/branches/{branch_id}", response_model=BranchOut)
+def get_branch(
+    branch_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    branch = db.scalar(
+        select(Branch).where(
+            Branch.id == branch_id,
+            Branch.company_id == user.company_id,
+            branch_scope(Branch.id, user),
+        )
+    )
+    if not branch:
+        raise not_found("Branch")
+    payload = BranchOut.model_validate(branch).model_dump(by_alias=True)
+    payload["users"] = (
+        db.scalar(select(func.count()).select_from(User).where(User.branch_id == branch.id)) or 0
+    )
+    return payload
+
+
 @router.patch("/branches/{branch_id}", response_model=BranchOut, dependencies=write_access)
 def update_branch(
     branch_id: uuid.UUID,
@@ -239,6 +261,26 @@ def create_department(
         db.rollback()
         raise conflict("A department with that name already exists.") from exc
     return DepartmentOut.model_validate(department)
+
+
+@router.get("/departments/{department_id}", response_model=DepartmentOut)
+def get_department(
+    department_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    department = db.scalar(
+        select(Department).where(
+            Department.id == department_id,
+            Department.company_id == user.company_id,
+            branch_scope(Department.branch_id, user),
+        )
+    )
+    if not department:
+        raise not_found("Department")
+    payload = DepartmentOut.model_validate(department).model_dump(by_alias=True)
+    payload["users"] = department_user_count(db, department.id)
+    return payload
 
 
 @router.patch("/departments/{department_id}", response_model=DepartmentOut, dependencies=write_access)
@@ -335,6 +377,24 @@ def create_user(
     except IntegrityError as exc:
         db.rollback()
         raise conflict("That email address is already in use.") from exc
+    return user_payload(user)
+
+
+@router.get("/users/{user_id}", response_model=UserOut)
+def get_user(
+    user_id: uuid.UUID,
+    actor: User = Depends(require_roles("Administrator", "Manager")),
+    db: Session = Depends(get_db),
+):
+    user = db.scalar(
+        select(User).where(
+            User.id == user_id,
+            User.company_id == actor.company_id,
+            branch_scope(User.branch_id, actor),
+        )
+    )
+    if not user:
+        raise not_found("User")
     return user_payload(user)
 
 

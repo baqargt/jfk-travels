@@ -100,7 +100,7 @@ export default function UsersPage() {
       className: "!text-right",
       render: (u) => (
         <div className="flex justify-end gap-1">
-          <Link to={PATHS.createUser} title="Edit user">
+          <Link to={PATHS.editUser(u.id)} title="Edit user">
             <Button variant="ghost" size="icon" className="!h-8 !w-8 text-slate-400 hover:text-brand-600">
               <Pencil className="h-4 w-4" />
             </Button>

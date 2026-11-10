@@ -1,13 +1,14 @@
-import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, CircleCheck } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { Input, Select, Textarea } from "@/components/ui/Input";
-import { FormField, Label } from "@/components/ui/Input";
+import { FormField } from "@/components/ui/Input";
 import PageHeader, { Card } from "@/components/ui/PageHeader";
 import Stepper from "@/components/ui/Stepper";
-import type { ApiPage, ApiPricingModel } from "@/api/types";
+import type { ApiBranch, ApiPage, ApiPricingModel } from "@/api/types";
+import { apiStatus } from "@/api/types";
 import { fmtMoney } from "@/lib/utils";
 import { PATHS } from "@/routes/paths";
 import { apiRequest } from "@/api/client";
@@ -29,6 +30,8 @@ interface SubCompanyDraft {
   creditLimit: string;
   pricingModel: string;
   notes: string;
+  status: string;
+  managerName: string;
 }
 
 const initial: SubCompanyDraft = {
@@ -46,18 +49,54 @@ const initial: SubCompanyDraft = {
   creditLimit: "50000",
   pricingModel: "",
   notes: "",
+  status: "active",
+  managerName: "",
 };
 
 export default function CreateSubCompanyPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data: pricingPage } = useQuery({ queryKey: ["pricing-models", "branch-form"], queryFn: () => apiRequest<ApiPage<ApiPricingModel>>("/pricing-models?page_size=100") });
+  const { branchId } = useParams<{ branchId?: string }>();
+  const isEdit = Boolean(branchId);
+  const { data: pricingPage } = useQuery({
+    queryKey: ["pricing-models", "branch-form"],
+    queryFn: () => apiRequest<ApiPage<ApiPricingModel>>("/pricing-models?page_size=100"),
+  });
   const pricingModels = pricingPage?.items ?? [];
+  const { data: branch, isLoading, error: loadError } = useQuery({
+    queryKey: ["branches", branchId],
+    queryFn: () => apiRequest<ApiBranch>(`/branches/${branchId}`),
+    enabled: isEdit,
+  });
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<SubCompanyDraft>(initial);
   const [agreed, setAgreed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!branch) return;
+    const [city = "", country = "United States"] = branch.location.split(",").map((part) => part.trim());
+    setForm({
+      legalName: branch.name,
+      displayName: branch.name,
+      type: branch.branchType,
+      license: "",
+      currency: branch.currency || "USD",
+      email: "",
+      phone: "",
+      country: country || "United States",
+      city,
+      address: "",
+      cashLimit: String(Number(branch.cashBalance) || 0),
+      creditLimit: String(Number(branch.creditLimit) || 0),
+      pricingModel: "",
+      notes: "",
+      status: branch.status,
+      managerName: branch.managerName ?? "",
+    });
+    setAgreed(true);
+  }, [branch]);
 
   const set = (key: keyof SubCompanyDraft) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -66,7 +105,7 @@ export default function CreateSubCompanyPage() {
     step === 0
       ? form.legalName.trim() !== "" && form.displayName.trim() !== ""
       : step === 1
-        ? form.email.includes("@") && form.city.trim() !== ""
+        ? (isEdit || form.email.includes("@")) && form.city.trim() !== ""
         : true;
 
   const handleSubmit = async (e?: FormEvent) => {
@@ -74,24 +113,44 @@ export default function CreateSubCompanyPage() {
     setSaving(true);
     setError("");
     try {
-      const codeBase = form.displayName.replace(/[^a-z0-9]/gi, "").slice(0, 8).toUpperCase() || "BRANCH";
-      await apiRequest("/branches", {
-        method: "POST",
-        body: {
-          code: codeBase,
-          name: form.displayName.trim(),
-          branchType: form.type,
-          location: [form.city, form.country].filter(Boolean).join(", "),
-          managerName: "",
-          currency: form.currency,
-          creditLimit: Number(form.creditLimit) || 0,
-          cashBalance: Number(form.cashLimit) || 0,
-        },
-      });
+      if (isEdit && branchId) {
+        await apiRequest(`/branches/${branchId}`, {
+          method: "PATCH",
+          body: {
+            name: form.displayName.trim(),
+            branchType: form.type,
+            location: [form.city, form.country].filter(Boolean).join(", "),
+            managerName: form.managerName.trim(),
+            currency: form.currency,
+            status: form.status.toLowerCase() === "active" ? "active" : form.status.toLowerCase(),
+          },
+        });
+      } else {
+        const codeBase = form.displayName.replace(/[^a-z0-9]/gi, "").slice(0, 8).toUpperCase() || "BRANCH";
+        await apiRequest("/branches", {
+          method: "POST",
+          body: {
+            code: codeBase,
+            name: form.displayName.trim(),
+            branchType: form.type,
+            location: [form.city, form.country].filter(Boolean).join(", "),
+            managerName: form.managerName.trim(),
+            currency: form.currency,
+            creditLimit: Number(form.creditLimit) || 0,
+            cashBalance: Number(form.cashLimit) || 0,
+          },
+        });
+      }
       await queryClient.invalidateQueries({ queryKey: ["branches"] });
       navigate(PATHS.company.subCompanies, { replace: true });
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Sub-company could not be created.");
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : isEdit
+            ? "Sub-company could not be updated."
+            : "Sub-company could not be created.",
+      );
       setSaving(false);
     }
   };
@@ -109,14 +168,26 @@ export default function CreateSubCompanyPage() {
     ["Cash limit", fmtMoney(Number(form.cashLimit) || 0)],
     ["Credit limit", fmtMoney(Number(form.creditLimit) || 0)],
     ["Pricing model", form.pricingModel],
+    ...(isEdit ? [["Status", apiStatus(form.status)] as [string, string]] : []),
   ];
 
   return (
     <>
       <PageHeader
-        title="Create Sub Company"
-        description="Onboard a new branch or franchise in four guided steps."
+        title={isEdit ? "Edit Sub Company" : "Create Sub Company"}
+        description={
+          isEdit
+            ? "Update branch or franchise details."
+            : "Onboard a new branch or franchise in four guided steps."
+        }
       />
+
+      {isEdit && isLoading && <p className="mb-4 text-sm text-slate-500">Loading sub-company...</p>}
+      {isEdit && loadError && (
+        <p className="mb-4 text-sm text-rose-600">
+          {loadError instanceof Error ? loadError.message : "Sub-company could not be loaded."}
+        </p>
+      )}
 
       <Card bodyClassName="p-6">
         <Stepper steps={STEPS} current={step} />
@@ -141,6 +212,9 @@ export default function CreateSubCompanyPage() {
                 <FormField label="Business license no.">
                   <Input value={form.license} onChange={set("license")} placeholder="IL-DOS ..." />
                 </FormField>
+                <FormField label="Manager name">
+                  <Input value={form.managerName} onChange={set("managerName")} placeholder="Branch manager" />
+                </FormField>
                 <FormField label="Settlement currency" className="sm:col-span-1">
                   <Select value={form.currency} onChange={set("currency")}>
                     {["USD", "EUR", "GBP", "AED", "PKR"].map((c) => (
@@ -148,12 +222,21 @@ export default function CreateSubCompanyPage() {
                     ))}
                   </Select>
                 </FormField>
+                {isEdit && (
+                  <FormField label="Status">
+                    <Select value={form.status} onChange={set("status")}>
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                      <option value="suspended">Suspended</option>
+                    </Select>
+                  </FormField>
+                )}
               </div>
             )}
 
             {step === 1 && (
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                <FormField label="Email address" required>
+                <FormField label="Email address" required={!isEdit}>
                   <Input type="email" value={form.email} onChange={set("email")} placeholder="ops@branch.com" />
                 </FormField>
                 <FormField label="Phone">
@@ -177,11 +260,17 @@ export default function CreateSubCompanyPage() {
 
             {step === 2 && (
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                <FormField label="Cash limit (USD)" hint="Allocated float from head office">
-                  <Input type="number" min={0} value={form.cashLimit} onChange={set("cashLimit")} />
+                <FormField
+                  label="Cash limit (USD)"
+                  hint={isEdit ? "Managed via JFK Travel Limits after create" : "Allocated float from head office"}
+                >
+                  <Input type="number" min={0} value={form.cashLimit} onChange={set("cashLimit")} disabled={isEdit} />
                 </FormField>
-                <FormField label="Credit limit (USD)" hint="Weekly settlement cycle applies">
-                  <Input type="number" min={0} value={form.creditLimit} onChange={set("creditLimit")} />
+                <FormField
+                  label="Credit limit (USD)"
+                  hint={isEdit ? "Managed via JFK Travel Limits after create" : "Weekly settlement cycle applies"}
+                >
+                  <Input type="number" min={0} value={form.creditLimit} onChange={set("creditLimit")} disabled={isEdit} />
                 </FormField>
                 <FormField
                   label="Pricing model"
@@ -224,27 +313,27 @@ export default function CreateSubCompanyPage() {
           </div>
 
           <div className="mx-auto mt-8 flex max-w-2xl items-center justify-between border-t border-slate-100 pt-5">
-            <Button variant="ghost" onClick={() => navigate(-1)} disabled={saving}>
+            <Button variant="ghost" type="button" onClick={() => navigate(-1)} disabled={saving}>
               Cancel
             </Button>
             <div className="flex items-center gap-2">
               {step > 0 && (
-                <Button variant="secondary" onClick={() => setStep((s) => s - 1)} disabled={saving}>
+                <Button variant="secondary" type="button" onClick={() => setStep((s) => s - 1)} disabled={saving}>
                   <ArrowLeft className="h-4 w-4" />
                   Back
                 </Button>
               )}
               {step < STEPS.length - 1 ? (
-                <Button onClick={() => canContinue && setStep((s) => s + 1)} disabled={!canContinue || saving}>
+                <Button type="button" onClick={() => canContinue && setStep((s) => s + 1)} disabled={!canContinue || saving}>
                   Continue
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               ) : (
-                <Button type="submit" disabled={!agreed || saving}>
-                  {saving ? "Creating..." : (
+                <Button type="submit" disabled={!agreed || saving || (isEdit && isLoading)}>
+                  {saving ? (isEdit ? "Saving..." : "Creating...") : (
                     <>
                       <CircleCheck className="h-4 w-4" />
-                      Create Sub Company
+                      {isEdit ? "Update Sub Company" : "Create Sub Company"}
                     </>
                   )}
                 </Button>

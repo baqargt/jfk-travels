@@ -46,6 +46,7 @@ from app.schemas import (
     CashAllocationInput,
     ExchangeRateInput,
     FinancialAccountInput,
+    FinancialAccountUpdate,
     LedgerReversalInput,
     LimitAdjustmentInput,
     LimitRequestInput,
@@ -53,6 +54,7 @@ from app.schemas import (
     QuoteInput,
     RefundInput,
     SearchInput,
+    TemporaryLimitUpdate,
 )
 from app.services import audit, next_code
 from app.suppliers import FakeSupplier
@@ -375,6 +377,31 @@ def create_exchange_rate(
     }
 
 
+def _account_out(account: FinancialAccount) -> dict:
+    return {
+        "id": account.id,
+        "branchId": account.branch_id,
+        "accountType": account.account_type,
+        "currency": account.currency,
+        "limitAmount": account.limit_amount,
+        "balance": account.balance,
+        "status": account.status,
+    }
+
+
+def _temporary_limit_out(row: TemporaryLimit) -> dict:
+    return {
+        "id": row.id,
+        "accountId": row.account_id,
+        "amount": row.amount,
+        "used": row.used,
+        "reason": row.reason,
+        "expiresAt": row.expires_at,
+        "status": row.status,
+        "createdAt": row.created_at,
+    }
+
+
 @router.post("/financial-accounts", status_code=201, dependencies=write_access)
 def create_financial_account(
     data: FinancialAccountInput,
@@ -405,6 +432,62 @@ def create_financial_account(
         db.rollback()
         raise conflict("That financial account already exists.") from exc
     return {"id": account.id, "accountType": account.account_type, "currency": account.currency}
+
+
+@router.get("/financial-accounts/{account_id}")
+def get_financial_account(
+    account_id: uuid.UUID,
+    user: User = Depends(require_roles("Administrator", "Manager", "Accounts")),
+    db: Session = Depends(get_db),
+):
+    account = db.scalar(
+        select(FinancialAccount).where(
+            FinancialAccount.id == account_id,
+            FinancialAccount.company_id == user.company_id,
+            branch_scope(FinancialAccount.branch_id, user),
+        )
+    )
+    if not account:
+        raise not_found("Financial account")
+    return _account_out(account)
+
+
+@router.patch("/financial-accounts/{account_id}", dependencies=write_access)
+def update_financial_account(
+    account_id: uuid.UUID,
+    data: FinancialAccountUpdate,
+    request: Request,
+    user: User = Depends(require_roles("Administrator", "Accounts")),
+    db: Session = Depends(get_db),
+):
+    account = db.scalar(
+        select(FinancialAccount).where(
+            FinancialAccount.id == account_id,
+            FinancialAccount.company_id == user.company_id,
+            branch_scope(FinancialAccount.branch_id, user),
+        )
+    )
+    if not account:
+        raise not_found("Financial account")
+    changes = data.model_dump(exclude_unset=True)
+    if "branch_id" in changes and changes["branch_id"] is not None:
+        if user.branch_id and changes["branch_id"] != user.branch_id:
+            raise forbidden("You cannot move a financial account to another branch.")
+        if not db.scalar(
+            select(Branch.id).where(Branch.id == changes["branch_id"], Branch.company_id == user.company_id)
+        ):
+            raise not_found("Branch")
+    if "currency" in changes and changes["currency"] is not None:
+        changes["currency"] = changes["currency"].upper()
+    for key, value in changes.items():
+        setattr(account, key, value)
+    audit(db, request, user, "account.update", "financial_account", account.id)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise conflict("That financial account already exists.") from exc
+    return _account_out(account)
 
 
 @router.get("/financial-accounts/{account_id}/ledger", response_model=Page)
@@ -605,6 +688,59 @@ def list_temporary_limits(
         "page": page,
         "page_size": page_size,
     }
+
+
+@router.get("/limits/temporary/{limit_id}")
+def get_temporary_limit(
+    limit_id: uuid.UUID,
+    user: User = Depends(require_roles("Administrator", "Manager", "Accounts")),
+    db: Session = Depends(get_db),
+):
+    row = db.scalar(
+        select(TemporaryLimit)
+        .join(FinancialAccount, FinancialAccount.id == TemporaryLimit.account_id)
+        .where(
+            TemporaryLimit.id == limit_id,
+            FinancialAccount.company_id == user.company_id,
+            branch_scope(FinancialAccount.branch_id, user),
+        )
+    )
+    if not row:
+        raise not_found("Temporary limit")
+    return _temporary_limit_out(row)
+
+
+@router.patch("/limits/temporary/{limit_id}", dependencies=write_access)
+def update_temporary_limit(
+    limit_id: uuid.UUID,
+    data: TemporaryLimitUpdate,
+    request: Request,
+    user: User = Depends(require_roles("Administrator", "Manager", "Accounts")),
+    db: Session = Depends(get_db),
+):
+    row = db.scalar(
+        select(TemporaryLimit)
+        .join(FinancialAccount, FinancialAccount.id == TemporaryLimit.account_id)
+        .where(
+            TemporaryLimit.id == limit_id,
+            FinancialAccount.company_id == user.company_id,
+            branch_scope(FinancialAccount.branch_id, user),
+        )
+    )
+    if not row:
+        raise not_found("Temporary limit")
+    if row.status not in {"pending", "active"}:
+        raise conflict("Only pending or active temporary limits can be edited.")
+    changes = data.model_dump(exclude_unset=True)
+    if "expires_at" in changes and changes["expires_at"] is not None and changes["expires_at"] <= datetime.now(UTC):
+        raise ApiError(422, "Invalid expiry", "Temporary limit expiry must be in the future.")
+    if "amount" in changes and changes["amount"] is not None and changes["amount"] < row.used:
+        raise conflict("Amount cannot be lower than the already used balance.")
+    for key, value in changes.items():
+        setattr(row, key, value)
+    audit(db, request, user, "limit.temporary.update", "temporary_limit", row.id)
+    db.commit()
+    return _temporary_limit_out(row)
 
 
 @router.post("/limits/temporary", status_code=201, dependencies=write_access)

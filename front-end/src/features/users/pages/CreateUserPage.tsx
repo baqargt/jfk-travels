@@ -1,12 +1,12 @@
-import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleCheck, RotateCcw } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { FormField, Input, PasswordInput, Select } from "@/components/ui/Input";
 import PageHeader, { Card } from "@/components/ui/PageHeader";
 import { apiRequest } from "@/api/client";
-import type { ApiBranch, ApiDepartment, ApiPage } from "@/api/types";
+import type { ApiBranch, ApiDepartment, ApiPage, ApiUser } from "@/api/types";
 import { PATHS } from "@/routes/paths";
 import type { Role } from "@/types";
 
@@ -66,6 +66,8 @@ const ROLE_PRESETS: Record<Role, (m: string, p: Perm) => boolean> = {
 export default function CreateUserPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { userId } = useParams<{ userId?: string }>();
+  const isEdit = Boolean(userId);
   const { data: branchData } = useQuery({
     queryKey: ["branches"],
     queryFn: () => apiRequest<ApiPage<ApiBranch>>("/branches?page_size=100"),
@@ -73,6 +75,11 @@ export default function CreateUserPage() {
   const { data: departmentData } = useQuery({
     queryKey: ["departments"],
     queryFn: () => apiRequest<ApiPage<ApiDepartment>>("/departments?page_size=100"),
+  });
+  const { data: existingUser, isLoading: loadingUser, error: loadError } = useQuery({
+    queryKey: ["users", userId],
+    queryFn: () => apiRequest<ApiUser>(`/users/${userId}`),
+    enabled: isEdit,
   });
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -102,6 +109,18 @@ export default function CreateUserPage() {
   const [adhocMarkup, setAdhocMarkup] = useState<string>("NO");
   const [submitError, setSubmitError] = useState("");
 
+  useEffect(() => {
+    if (!existingUser) return;
+    const parts = existingUser.name.trim().split(/\s+/);
+    setFirstName(parts[0] ?? "");
+    setLastName(parts.slice(1).join(" "));
+    setEmail(existingUser.email);
+    const nextRole = (existingUser.roles[0] ?? "Agent") as Role;
+    applyRole(nextRole);
+    setSubCompany(existingUser.branchId ?? "");
+    setDepartment(existingUser.departmentId ?? "");
+  }, [existingUser]);
+
   const applyRole = (next: Role) => {
     setRole(next);
     const m = emptyMatrix();
@@ -125,34 +144,66 @@ export default function CreateUserPage() {
     setSaving(true);
     setSubmitError("");
     try {
-      await apiRequest("/users", {
-        method: "POST",
-        body: {
-          name: `${firstName.trim()} ${lastName.trim()}`,
-          email: email.trim(),
-          password,
-          role,
-          branchId: subCompany || null,
-          departmentId: department || null,
-        },
-      });
+      if (isEdit && userId) {
+        await apiRequest(`/users/${userId}`, {
+          method: "PATCH",
+          body: {
+            name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+            role,
+            branchId: subCompany || null,
+            departmentId: department || null,
+          },
+        });
+      } else {
+        await apiRequest("/users", {
+          method: "POST",
+          body: {
+            name: `${firstName.trim()} ${lastName.trim()}`,
+            email: email.trim(),
+            password,
+            role,
+            branchId: subCompany || null,
+            departmentId: department || null,
+          },
+        });
+      }
       await queryClient.invalidateQueries({ queryKey: ["users"] });
       navigate(PATHS.users, { replace: true });
     } catch (reason) {
-      setSubmitError(reason instanceof Error ? reason.message : "User could not be created.");
+      setSubmitError(
+        reason instanceof Error
+          ? reason.message
+          : isEdit
+            ? "User could not be updated."
+            : "User could not be created.",
+      );
       setSaving(false);
     }
   };
 
   const valid =
-    firstName.trim() && lastName.trim() && email.includes("@") && password.length >= 10;
+    firstName.trim() &&
+    lastName.trim() &&
+    email.includes("@") &&
+    (isEdit || password.length >= 10);
 
   return (
     <>
       <PageHeader
-        title="Create User"
-        description="Add a platform account and define granular role-based permissions."
+        title={isEdit ? "Edit User" : "Create User"}
+        description={
+          isEdit
+            ? "Update platform account details and role-based permissions."
+            : "Add a platform account and define granular role-based permissions."
+        }
       />
+
+      {isEdit && loadingUser && <p className="mb-4 text-sm text-slate-500">Loading user...</p>}
+      {isEdit && loadError && (
+        <p className="mb-4 text-sm text-rose-600">
+          {loadError instanceof Error ? loadError.message : "User could not be loaded."}
+        </p>
+      )}
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card title="Account Details">
@@ -180,11 +231,19 @@ export default function CreateUserPage() {
             </FormField>
 
             <FormField label="Email address" required className="sm:col-span-3">
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@jfktravel.com" />
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="jane@jfktravel.com"
+                disabled={isEdit}
+              />
             </FormField>
-            <FormField label="Temporary password" required hint="User will be prompted to change on first login" className="sm:col-span-3">
-              <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} />
-            </FormField>
+            {!isEdit && (
+              <FormField label="Temporary password" required hint="User will be prompted to change on first login" className="sm:col-span-3">
+                <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} />
+              </FormField>
+            )}
 
             <FormField label="Mobile" className="sm:col-span-3">
               <Input type="tel" value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="+92 300 0000000" />
@@ -305,11 +364,11 @@ export default function CreateUserPage() {
             <Button variant="ghost" onClick={() => navigate(-1)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={!valid || saving}>
-              {saving ? "Creating..." : (
+            <Button type="submit" disabled={!valid || saving || (isEdit && loadingUser)}>
+              {saving ? (isEdit ? "Saving..." : "Creating...") : (
                 <>
                   <CircleCheck className="h-4 w-4" />
-                  Create User
+                  {isEdit ? "Update User" : "Create User"}
                 </>
               )}
             </Button>

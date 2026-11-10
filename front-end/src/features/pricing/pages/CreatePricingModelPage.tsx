@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState, type FormEvent } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleCheck, Plus, Trash2 } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -17,7 +17,7 @@ import { ALL_TEMPLATE_CATEGORIES } from "@/types";
 import { fmtMoney } from "@/lib/utils";
 import { PATHS } from "@/routes/paths";
 import { apiRequest } from "@/api/client";
-import type { ApiPricingModel } from "@/api/types";
+import type { ApiPricingModel, ApiPricingModelDetail } from "@/api/types";
 
 interface RuleRow {
   id: number;
@@ -55,6 +55,8 @@ const categoryVariant: Record<string, "blue" | "violet" | "amber" | "green" | "r
 export default function CreatePricingModelPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { modelId } = useParams<{ modelId?: string }>();
+  const isEdit = Boolean(modelId);
   const [name, setName] = useState("");
   const [detail, setDetail] = useState("");
   const [type, setType] = useState<"Markup" | "Commission">("Markup");
@@ -73,6 +75,52 @@ export default function CreatePricingModelPage() {
   const [airData, setAirData] = useState(defaultAirTemplate);
   const [hotelData, setHotelData] = useState(defaultHotelTemplate);
   const [tourData, setTourData] = useState(defaultTourTemplate);
+
+  const { data: existing, isLoading, error: loadError } = useQuery({
+    queryKey: ["pricing-models", modelId],
+    queryFn: () => apiRequest<ApiPricingModelDetail>(`/pricing-models/${modelId}`),
+    enabled: isEdit,
+  });
+
+  useEffect(() => {
+    if (!existing) return;
+    const rulesPayload = existing.rules ?? {};
+    setName(existing.name);
+    setDetail(typeof rulesPayload.detail === "string" ? rulesPayload.detail : "");
+    setType(existing.pricingType);
+    setScope(existing.scope);
+    setAppliesTo(typeof rulesPayload.appliesTo === "string" ? rulesPayload.appliesTo : "");
+    setPriority(String(existing.priority));
+    setActive(existing.status === "active" || existing.status === "pending");
+    setCommissionPct(String(rulesPayload.commissionPercentage ?? ""));
+    setCommissionBasis(typeof rulesPayload.commissionBasis === "string" ? rulesPayload.commissionBasis : "Base fare");
+    const rows = Array.isArray(rulesPayload.rows) ? rulesPayload.rows : [];
+    if (rows.length) {
+      setRules(
+        rows.map((row) => {
+          const item = row as Partial<RuleRow>;
+          return {
+            id: nextId++,
+            airline: String(item.airline ?? ""),
+            routeFrom: String(item.routeFrom ?? ""),
+            routeTo: String(item.routeTo ?? ""),
+            cabin: String(item.cabin ?? ""),
+            mType: item.mType === "$" ? "$" : "%",
+            value: String(item.value ?? ""),
+          };
+        }),
+      );
+    }
+    const templates = (rulesPayload.templates ?? {}) as Record<string, unknown>;
+    const categories = Object.entries(templates)
+      .filter(([, value]) => Boolean(value))
+      .map(([key]) => key);
+    setSelectedCategories(categories);
+    setActiveTab(categories[0] ?? "");
+    if (templates.Air && typeof templates.Air === "object") setAirData({ ...defaultAirTemplate, ...(templates.Air as object) });
+    if (templates.Hotel && typeof templates.Hotel === "object") setHotelData({ ...defaultHotelTemplate, ...(templates.Hotel as object) });
+    if (templates.Tour && typeof templates.Tour === "object") setTourData({ ...defaultTourTemplate, ...(templates.Tour as object) });
+  }, [existing]);
 
   const patch = (id: number, key: keyof RuleRow, v: string) =>
     setRules((rs) => rs.map((r) => (r.id === id ? { ...r, [key]: v } : r)));
@@ -95,41 +143,64 @@ export default function CreatePricingModelPage() {
 
   const tabs = selectedCategories.map((c) => ({ id: c, label: c }));
 
+  const buildRules = () => ({
+    detail,
+    appliesTo,
+    percentage: firstRule?.mType === "%" ? Number(firstRule.value) || 0 : 0,
+    amount: firstRule?.mType === "$" ? Number(firstRule.value) || 0 : 0,
+    commissionPercentage: Number(commissionPct) || 0,
+    commissionBasis,
+    rows: rules,
+    templates: {
+      Air: selectedCategories.includes("Air") ? airData : null,
+      Hotel: selectedCategories.includes("Hotel") ? hotelData : null,
+      Tour: selectedCategories.includes("Tour") ? tourData : null,
+    },
+  });
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setSubmitError("");
     try {
-      const model = await apiRequest<ApiPricingModel>("/pricing-models", {
-        method: "POST",
-        body: {
-          name: name.trim(),
-          pricingType: type,
-          scope,
-          priority: Number(priority) || 100,
-          rules: {
-            detail,
-            appliesTo,
-            percentage: firstRule?.mType === "%" ? Number(firstRule.value) || 0 : 0,
-            amount: firstRule?.mType === "$" ? Number(firstRule.value) || 0 : 0,
-            commissionPercentage: Number(commissionPct) || 0,
-            commissionBasis,
-            rows: rules,
-            templates: {
-              Air: selectedCategories.includes("Air") ? airData : null,
-              Hotel: selectedCategories.includes("Hotel") ? hotelData : null,
-              Tour: selectedCategories.includes("Tour") ? tourData : null,
-            },
+      let modelIdToSubmit = modelId;
+      if (isEdit && modelId) {
+        await apiRequest<ApiPricingModelDetail>(`/pricing-models/${modelId}`, {
+          method: "PATCH",
+          body: {
+            name: name.trim(),
+            pricingType: type,
+            scope,
+            priority: Number(priority) || 100,
+            rules: buildRules(),
           },
-        },
-      });
-      if (active) {
-        await apiRequest(`/pricing-models/${model.id}/submit`, { method: "POST" });
+        });
+      } else {
+        const model = await apiRequest<ApiPricingModel>("/pricing-models", {
+          method: "POST",
+          body: {
+            name: name.trim(),
+            pricingType: type,
+            scope,
+            priority: Number(priority) || 100,
+            rules: buildRules(),
+          },
+        });
+        modelIdToSubmit = model.id;
+      }
+      if (active && modelIdToSubmit) {
+        await apiRequest(`/pricing-models/${modelIdToSubmit}/submit`, { method: "POST" });
       }
       await queryClient.invalidateQueries({ queryKey: ["pricing-models"] });
       navigate(PATHS.pricing, { replace: true });
     } catch (reason) {
-      setSubmitError(reason instanceof Error ? reason.message : "Pricing model could not be created.");
+      setSubmitError(
+        reason instanceof Error
+          ? reason.message
+          : isEdit
+            ? "Pricing model could not be updated."
+            : "Pricing model could not be created.",
+      );
       setSaving(false);
     }
   };
@@ -137,9 +208,20 @@ export default function CreatePricingModelPage() {
   return (
     <>
       <PageHeader
-        title="Create Pricing Model"
-        description="Define dynamic markup and commission rules for fares across suppliers."
+        title={isEdit ? "Edit Pricing Model" : "Create Pricing Model"}
+        description={
+          isEdit
+            ? "Update markup/commission rules. Rule changes create a new draft version pending approval."
+            : "Define dynamic markup and commission rules for fares across suppliers."
+        }
       />
+
+      {isEdit && isLoading && <p className="mb-4 text-sm text-slate-500">Loading pricing model...</p>}
+      {isEdit && loadError && (
+        <p className="mb-4 text-sm text-rose-600">
+          {loadError instanceof Error ? loadError.message : "Pricing model could not be loaded."}
+        </p>
+      )}
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         {submitError && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 xl:col-span-3">{submitError}</p>}
@@ -311,20 +393,22 @@ export default function CreatePricingModelPage() {
                 <Input type="number" min={1} max={10} value={priority} onChange={(e) => setPriority(e.target.value)} />
               </FormField>
               <div className="flex items-center justify-between rounded-lg border border-slate-200 px-3.5 py-3">
-                <span className="text-sm font-medium text-slate-700">Activate immediately</span>
+                <span className="text-sm font-medium text-slate-700">
+                  {isEdit ? "Submit for approval" : "Activate immediately"}
+                </span>
                 <StatusToggle checked={active} onChange={setActive} label={false} />
               </div>
             </div>
 
             <div className="mt-6 flex items-center gap-2 border-t border-slate-100 pt-5">
-              <Button variant="ghost" className="flex-1" onClick={() => navigate(-1)}>
+              <Button variant="ghost" type="button" className="flex-1" onClick={() => navigate(-1)}>
                 Cancel
               </Button>
-              <Button type="submit" className="flex-1" disabled={!name.trim() || saving}>
+              <Button type="submit" className="flex-1" disabled={!name.trim() || saving || (isEdit && isLoading)}>
                 {saving ? "Saving..." : (
                   <>
                     <CircleCheck className="h-4 w-4" />
-                    Save Model
+                    {isEdit ? "Update Model" : "Save Model"}
                   </>
                 )}
               </Button>

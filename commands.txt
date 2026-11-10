@@ -3,3 +3,11 @@ docker compose exec db sh -lc 'psql -U "jfk" -d "change-me-strong-database-passw
 POSTGRES_DB=jfk_erp
 POSTGRES_USER=jfk
 POSTGRES_PASSWORD=change-me-strong-database-password
+
+
+# after deployment
+docker compose up --build -d
+docker compose up build --no-cache frontend
+
+cd ~/jfk-travels/front-end && npm run build && cp -r dist/* /var/www/jfk-erp/
+

@@ -56,22 +56,42 @@ export async function getCustomers(): Promise<Customer[]> {
   return response.items.map(fromApi);
 }
 
+export async function getCustomer(customerId: string): Promise<Customer> {
+  const response = await apiRequest<ApiCustomer>(`/customers/${customerId}`);
+  return fromApi(response);
+}
+
+function toPayload(input: Omit<Customer, "id" | "agentCode" | "status" | "createdAt">) {
+  const { accountCode, name, email, telephone, mobile, website, defaultCurrency, ...profile } = input;
+  return {
+    accountCode,
+    name,
+    email: email || input.admin.email,
+    telephone,
+    mobile,
+    website,
+    defaultCurrency,
+    profile: { ...profile, admin: input.admin, accountsContact: input.accountsContact },
+  };
+}
+
 export async function createCustomer(
   input: Omit<Customer, "id" | "agentCode" | "status" | "createdAt">,
 ): Promise<Customer> {
-  const { accountCode, name, email, telephone, mobile, website, defaultCurrency, ...profile } = input;
   const response = await apiRequest<ApiCustomer>("/customers", {
     method: "POST",
-    body: {
-      accountCode,
-      name,
-      email: email || input.admin.email,
-      telephone,
-      mobile,
-      website,
-      defaultCurrency,
-      profile: { ...profile, admin: input.admin, accountsContact: input.accountsContact },
-    },
+    body: toPayload(input),
+  });
+  return fromApi(response);
+}
+
+export async function updateCustomer(
+  customerId: string,
+  input: Omit<Customer, "id" | "agentCode" | "status" | "createdAt">,
+): Promise<Customer> {
+  const response = await apiRequest<ApiCustomer>(`/customers/${customerId}`, {
+    method: "PUT",
+    body: toPayload(input),
   });
   return fromApi(response);
 }

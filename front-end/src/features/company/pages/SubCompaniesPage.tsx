@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
 import Badge, { StatusBadge } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -66,6 +66,19 @@ export default function SubCompaniesPage() {
     },
     { key: "status", header: "Status", render: (s) => <StatusBadge status={s.status} /> },
     { key: "createdAt", header: "Onboarded", sortValue: (s) => s.createdAt, render: (s) => fmtDate(s.createdAt) },
+    {
+      key: "actions",
+      header: "",
+      headerClassName: "!text-right",
+      className: "!text-right",
+      render: (s) => (
+        <Link to={PATHS.company.editSubCompany(s.id)} title="Edit sub company">
+          <Button variant="ghost" size="icon" className="!h-8 !w-8 text-slate-400 hover:text-brand-600">
+            <Pencil className="h-4 w-4" />
+          </Button>
+        </Link>
+      ),
+    },
   ];
 
   return (

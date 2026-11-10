@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, CircleCheck, ShieldCheck } from "lucide-react";
 import Button from "@/components/ui/Button";
 import FileUpload from "@/components/ui/FileUpload";
@@ -20,7 +20,7 @@ import {
   NOTIFICATION_EMAILS,
   PAYMENT_CHANNELS,
 } from "@/features/customers/customerData";
-import { createCustomer } from "@/features/customers/customerRepository";
+import { createCustomer, getCustomer, updateCustomer } from "@/features/customers/customerRepository";
 import { apiRequest } from "@/api/client";
 import type { ApiBranch, ApiDepartment, ApiPage, ApiPricingModel, ApiUser } from "@/api/types";
 import { PATHS } from "@/routes/paths";
@@ -107,6 +107,8 @@ function SelectField({ label, value, values, onChange, required = false }: {
 
 export default function CreateCustomerPage() {
   const navigate = useNavigate();
+  const { customerId } = useParams<{ customerId?: string }>();
+  const isEdit = Boolean(customerId);
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<CustomerDraft>(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -118,10 +120,27 @@ export default function CreateCustomerPage() {
   const { data: userPage } = useQuery({ queryKey: ["users", "customer-form"], queryFn: () => apiRequest<ApiPage<ApiUser>>("/users?page_size=100") });
   const { data: departmentPage } = useQuery({ queryKey: ["departments", "customer-form"], queryFn: () => apiRequest<ApiPage<ApiDepartment>>("/departments?page_size=100") });
   const { data: pricingPage } = useQuery({ queryKey: ["pricing-models", "customer-form"], queryFn: () => apiRequest<ApiPage<ApiPricingModel>>("/pricing-models?page_size=100") });
+  const { data: existing, isLoading: loadingCustomer, error: loadError } = useQuery({
+    queryKey: ["customers", customerId],
+    queryFn: () => getCustomer(customerId!),
+    enabled: isEdit,
+  });
   const branches = ["All", ...(branchPage?.items ?? []).filter((item) => item.status === "active").map((item) => item.name)];
   const activeUsers = (userPage?.items ?? []).filter((item) => item.status === "active").map((item) => item.name);
   const departmentNames = (departmentPage?.items ?? []).filter((item) => item.status === "active").map((item) => item.name);
   const pricingModels = (pricingPage?.items ?? []).map((item) => item.name);
+
+  useEffect(() => {
+    if (!existing) return;
+    const { id: _id, agentCode: _agentCode, status: _status, createdAt: _createdAt, ...rest } = existing;
+    setForm({
+      ...initial,
+      ...rest,
+      adminPassword: isEdit ? "********" : "",
+      accountsEnabled: Boolean(existing.accountsContact),
+    });
+    setAgreed(true);
+  }, [existing, isEdit]);
 
   const setValue = <K extends keyof CustomerDraft>(key: K, value: CustomerDraft[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -189,7 +208,7 @@ export default function CreateCustomerPage() {
       if (!form.admin.lastName.trim()) next["admin.lastName"] = "Last name is required.";
       if (!form.admin.designation.trim()) next["admin.designation"] = "Designation is required.";
       if (!emailIsValid(form.admin.email)) next["admin.email"] = "Enter a valid admin email.";
-      if (form.adminPassword.length < 8) next.adminPassword = "Password must be at least 8 characters.";
+      if (!isEdit && form.adminPassword.length < 8) next.adminPassword = "Password must be at least 8 characters.";
       if (form.accountsEnabled) {
         const contact = form.accountsContact ?? EMPTY_CONTACT;
         if (!contact.firstName.trim()) next["accountsContact.firstName"] = "First name is required.";
@@ -216,11 +235,19 @@ export default function CreateCustomerPage() {
     setSubmitError("");
     try {
       const { adminPassword: _password, accountsEnabled: _accountsEnabled, ...customerInput } = form;
-      const customer = await createCustomer({
+      const payload = {
         ...customerInput,
         accountsContact: form.accountsEnabled ? form.accountsContact : null,
+      };
+      const customer = isEdit && customerId
+        ? await updateCustomer(customerId, payload)
+        : await createCustomer(payload);
+      navigate(PATHS.customers.list, {
+        replace: true,
+        state: isEdit
+          ? { customerName: customer.name }
+          : { createdAgentCode: customer.agentCode, customerName: customer.name },
       });
-      navigate(PATHS.customers.list, { replace: true, state: { createdAgentCode: customer.agentCode, customerName: customer.name } });
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Customer could not be saved.");
       setSaving(false);
@@ -231,7 +258,20 @@ export default function CreateCustomerPage() {
 
   return (
     <>
-      <PageHeader title="Create Customer" description="Onboard a customer organization and configure its operating profile." />
+      <PageHeader
+        title={isEdit ? "Edit Customer" : "Create Customer"}
+        description={
+          isEdit
+            ? "Update customer organization details and operating profile."
+            : "Onboard a customer organization and configure its operating profile."
+        }
+      />
+      {isEdit && loadingCustomer && <p className="mb-4 text-sm text-slate-500">Loading customer...</p>}
+      {isEdit && loadError && (
+        <p className="mb-4 text-sm text-rose-600">
+          {loadError instanceof Error ? loadError.message : "Customer could not be loaded."}
+        </p>
+      )}
       <Card bodyClassName="p-4 sm:p-6">
         <div className="overflow-x-auto pb-2"><div className="min-w-[760px]"><Stepper steps={STEPS} current={step} /></div></div>
         <form onSubmit={handleSubmit} className="mt-7">
@@ -412,7 +452,13 @@ export default function CreateCustomerPage() {
               {step > 0 && <Button variant="secondary" onClick={() => { setErrors({}); setStep((current) => current - 1); }} disabled={saving}><ArrowLeft className="h-4 w-4" />Back</Button>}
               {step < STEPS.length - 1
                 ? <Button onClick={continueStep} disabled={saving}>Continue<ArrowRight className="h-4 w-4" /></Button>
-                : <Button type="submit" disabled={!agreed || saving}>{saving ? "Creating..." : <><CircleCheck className="h-4 w-4" />Save & Create</>}</Button>}
+                : (
+                  <Button type="submit" disabled={!agreed || saving || (isEdit && loadingCustomer)}>
+                    {saving
+                      ? (isEdit ? "Saving..." : "Creating...")
+                      : <><CircleCheck className="h-4 w-4" />{isEdit ? "Save Changes" : "Save & Create"}</>}
+                  </Button>
+                )}
             </div>
           </div>
         </form>

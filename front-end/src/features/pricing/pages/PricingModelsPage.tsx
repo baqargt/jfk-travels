@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, SlidersHorizontal } from "lucide-react";
+import { Pencil, Plus, SlidersHorizontal } from "lucide-react";
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
 import Badge, { StatusBadge } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -83,6 +83,19 @@ export default function PricingModelsPage() {
     },
     { key: "status", header: "Status", render: (r) => <StatusBadge status={r.status} /> },
     { key: "updatedAt", header: "Updated", sortValue: (r) => r.updatedAt, render: (r) => fmtDate(r.updatedAt) },
+    {
+      key: "actions",
+      header: "",
+      headerClassName: "!text-right",
+      className: "!text-right",
+      render: (r) => (
+        <Link to={PATHS.editPricing(r.id)} title="Edit pricing model">
+          <Button variant="ghost" size="icon" className="!h-8 !w-8 text-slate-400 hover:text-brand-600">
+            <Pencil className="h-4 w-4" />
+          </Button>
+        </Link>
+      ),
+    },
   ];
 
   return (

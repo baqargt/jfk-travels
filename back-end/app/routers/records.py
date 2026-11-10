@@ -13,8 +13,10 @@ from app.schemas import (
     CustomerInput,
     CustomerOut,
     Page,
+    PricingModelDetailOut,
     PricingModelInput,
     PricingModelOut,
+    PricingModelUpdate,
     TravellerInput,
 )
 from app.security import encrypt_sensitive
@@ -331,6 +333,28 @@ def list_pricing_templates(
     return templates
 
 
+@router.get("/pricing-models/{model_id}", response_model=PricingModelDetailOut)
+def get_pricing_model(
+    model_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    model = db.scalar(
+        select(PricingModel).where(PricingModel.id == model_id, PricingModel.company_id == user.company_id)
+    )
+    if not model:
+        raise not_found("Pricing model")
+    version = db.scalar(
+        select(PricingRuleVersion)
+        .where(PricingRuleVersion.pricing_model_id == model.id)
+        .order_by(PricingRuleVersion.version.desc())
+    )
+    payload = PricingModelOut.model_validate(model).model_dump(by_alias=True)
+    payload["rules"] = version.rules if version else {}
+    payload["latestVersion"] = version.version if version else 0
+    return payload
+
+
 @router.post("/pricing-models", response_model=PricingModelOut, status_code=201, dependencies=write_access)
 def create_pricing_model(
     data: PricingModelInput,
@@ -346,3 +370,43 @@ def create_pricing_model(
     audit(db, request, user, "pricing.create", "pricing_model", model.id)
     db.commit()
     return model
+
+
+@router.patch("/pricing-models/{model_id}", response_model=PricingModelDetailOut, dependencies=write_access)
+def update_pricing_model(
+    model_id: uuid.UUID,
+    data: PricingModelUpdate,
+    request: Request,
+    user: User = Depends(require_roles("Administrator", "Manager")),
+    db: Session = Depends(get_db),
+):
+    model = db.scalar(
+        select(PricingModel).where(PricingModel.id == model_id, PricingModel.company_id == user.company_id)
+    )
+    if not model:
+        raise not_found("Pricing model")
+    changes = data.model_dump(exclude_unset=True)
+    rules = changes.pop("rules", None)
+    for key, value in changes.items():
+        setattr(model, key, value)
+    latest = db.scalar(
+        select(PricingRuleVersion)
+        .where(PricingRuleVersion.pricing_model_id == model.id)
+        .order_by(PricingRuleVersion.version.desc())
+    )
+    if rules is not None:
+        next_version = (latest.version if latest else 0) + 1
+        latest = PricingRuleVersion(
+            pricing_model_id=model.id,
+            version=next_version,
+            rules=rules,
+            created_by=user.id,
+        )
+        db.add(latest)
+        model.status = "draft"
+    audit(db, request, user, "pricing.update", "pricing_model", model.id)
+    db.commit()
+    payload = PricingModelOut.model_validate(model).model_dump(by_alias=True)
+    payload["rules"] = latest.rules if latest else {}
+    payload["latestVersion"] = latest.version if latest else 0
+    return payload

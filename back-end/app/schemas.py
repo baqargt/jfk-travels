@@ -219,6 +219,33 @@ class PricingModelOut(ApiModel):
     updated_at: datetime
 
 
+class PricingModelUpdate(ApiModel):
+    name: str | None = Field(default=None, min_length=2, max_length=180)
+    pricing_type: str | None = Field(default=None, pattern="^(Markup|Commission)$")
+    scope: str | None = Field(default=None, max_length=100)
+    priority: int | None = Field(default=None, ge=1, le=10000)
+    rules: dict[str, Any] | None = None
+
+
+class PricingModelDetailOut(PricingModelOut):
+    rules: dict[str, Any] = Field(default_factory=dict)
+    latest_version: int = 0
+
+
+class FinancialAccountUpdate(ApiModel):
+    branch_id: uuid.UUID | None = None
+    currency: str | None = Field(default=None, min_length=3, max_length=3)
+    limit_amount: Decimal | None = Field(default=None, ge=0)
+    status: str | None = Field(default=None, pattern="^(active|inactive)$")
+
+
+class TemporaryLimitUpdate(ApiModel):
+    amount: Decimal | None = Field(default=None, gt=0)
+    expires_at: datetime | None = None
+    reason: str | None = Field(default=None, min_length=3, max_length=1000)
+    status: str | None = Field(default=None, pattern="^(pending|active|expired|rejected|cancelled)$")
+
+
 class ApprovalInput(ApiModel):
     decision: str = Field(pattern="^(approved|rejected)$")
     comment: str = Field(min_length=3, max_length=1000)

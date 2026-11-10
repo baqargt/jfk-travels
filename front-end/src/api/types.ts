@@ -225,6 +225,11 @@ export interface ApiPricingModel {
   updatedAt: string;
 }
 
+export interface ApiPricingModelDetail extends ApiPricingModel {
+  rules: Record<string, unknown>;
+  latestVersion: number;
+}
+
 export const apiStatus = (status: string): AccountStatus => {
   const normalized = status.toLowerCase();
   return normalized === "suspended" ? "Suspended" : normalized === "active" ? "Active" : "Inactive";

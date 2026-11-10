@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, Plus, X } from "lucide-react";
+import { CheckCircle2, Pencil, Plus, X } from "lucide-react";
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
 import Badge, { StatusBadge } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -55,6 +55,19 @@ export default function CustomersPage() {
     { key: "defaultCurrency", header: "Currency" },
     { key: "status", header: "Status", render: (customer) => <StatusBadge status={customer.status} /> },
     { key: "createdAt", header: "Created", render: (customer) => fmtDate(customer.createdAt) },
+    {
+      key: "actions",
+      header: "",
+      headerClassName: "!text-right",
+      className: "!text-right",
+      render: (customer) => (
+        <Link to={PATHS.customers.edit(customer.id)} title="Edit customer">
+          <Button variant="ghost" size="icon" className="!h-8 !w-8 text-slate-400 hover:text-brand-600">
+            <Pencil className="h-4 w-4" />
+          </Button>
+        </Link>
+      ),
+    },
   ];
 
   return (
