@@ -18,7 +18,8 @@ import Modal from "@/components/ui/Modal";
 import PageHeader, { Card } from "@/components/ui/PageHeader";
 import { countries } from "@/lib/bookingData";
 import { apiRequest } from "@/api/client";
-import { apiStatus, type ApiPage, type ApiTraveller, type Quote } from "@/api/types";
+import { apiStatus, type ApiBooking, type ApiPage, type ApiTraveller, type Quote } from "@/api/types";
+import TicketPreview from "@/features/booking/components/TicketPreview";
 import { cn } from "@/lib/utils";
 import { PATHS } from "@/routes/paths";
 import type { BookingResult, TravelerCounts, TravellerProfile } from "@/types";
@@ -478,6 +479,8 @@ export default function PassengerDetailsPage() {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [holdAvailability, setHoldAvailability] = useState<"N/A" | "Available">("Available");
   const [outcome, setOutcome] = useState<{ action: BookingAction; reference: string } | null>(null);
+  const [confirmedBooking, setConfirmedBooking] = useState<ApiBooking | null>(null);
+  const [ticketOpen, setTicketOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState("");
 
@@ -585,7 +588,7 @@ export default function PassengerDetailsPage() {
     setSubmitting(true);
     setApiError("");
     try {
-      const booking = await apiRequest<{ reference: string }>(`/quotes/${resultId}/confirm`, {
+      const booking = await apiRequest<ApiBooking>(`/quotes/${resultId}/confirm`, {
         method: "POST",
         headers: { "Idempotency-Key": crypto.randomUUID() },
         body: {
@@ -597,6 +600,8 @@ export default function PassengerDetailsPage() {
         },
       });
       setOutcome({ action, reference: booking.reference });
+      setConfirmedBooking(booking);
+      setTicketOpen(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (reason) {
       setApiError(reason instanceof Error ? reason.message : "Booking could not be confirmed.");
@@ -627,8 +632,13 @@ export default function PassengerDetailsPage() {
             <p className="text-sm font-semibold text-emerald-900">{actionCopy}</p>
             <p className="text-xs text-emerald-700">Reference {outcome.reference} · Booking saved successfully.</p>
             <div className="mt-3 flex flex-wrap gap-2">
+              {confirmedBooking && (
+                <Button size="sm" onClick={() => setTicketOpen(true)}>
+                  View Ticket
+                </Button>
+              )}
               <Link to={PATHS.booking.list}>
-                <Button size="sm">View Completed Bookings</Button>
+                <Button size="sm" variant={confirmedBooking ? "secondary" : "primary"}>View Completed Bookings</Button>
               </Link>
               <Link to={PATHS.booking.flights}>
                 <Button size="sm" variant="secondary">Create Another Booking</Button>
@@ -748,6 +758,12 @@ export default function PassengerDetailsPage() {
           </div>
         </div>
       </Modal>
+
+      <TicketPreview
+        booking={confirmedBooking}
+        open={ticketOpen && Boolean(confirmedBooking)}
+        onClose={() => setTicketOpen(false)}
+      />
     </>
   );
 }

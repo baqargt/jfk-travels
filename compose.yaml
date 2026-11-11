@@ -10,8 +10,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "127.0.0.1:5432:5432"
+    # ports:
+    #   - "127.0.0.1:5432:5432"
+    # No host port publish — avoids conflict when host Postgres already uses 5432.
+    # API reaches DB on the Docker network as db:5432.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jfk} -d ${POSTGRES_DB:-jfk_erp}"]
       interval: 5s

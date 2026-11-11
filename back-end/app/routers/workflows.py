@@ -105,7 +105,25 @@ def _approval_out(row: ApprovalRequest) -> dict:
     }
 
 
-def _booking_out(row: Booking) -> dict:
+def _passenger_out(row: BookingPassenger) -> dict:
+    return {
+        "id": row.id,
+        "passengerType": row.passenger_type,
+        "snapshot": row.snapshot,
+    }
+
+
+def _booking_out(
+    row: Booking,
+    db: Session | None = None,
+    passengers: list[BookingPassenger] | None = None,
+) -> dict:
+    if passengers is None and db is not None:
+        passengers = list(
+            db.scalars(
+                select(BookingPassenger).where(BookingPassenger.booking_id == row.id)
+            ).all()
+        )
     return {
         "id": row.id,
         "reference": row.reference,
@@ -115,6 +133,7 @@ def _booking_out(row: Booking) -> dict:
         "currency": row.currency,
         "totalAmount": row.total_amount,
         "details": row.details,
+        "passengers": [_passenger_out(item) for item in (passengers or [])],
         "createdAt": row.created_at,
         "updatedAt": row.updated_at,
     }
@@ -1129,7 +1148,7 @@ def confirm_quote(
             )
         )
     quote.status = "confirmed"
-    response = jsonable_encoder(_booking_out(booking))
+    response = jsonable_encoder(_booking_out(booking, db=db))
     db.add(
         IdempotencyRecord(
             user_id=user.id,
@@ -1180,11 +1199,22 @@ def list_bookings(
     count = select(func.count()).select_from(Booking).where(*scope)
     if status:
         query, count = query.where(Booking.status == status), count.where(Booking.status == status)
-    rows = db.scalars(
-        query.order_by(Booking.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
-    ).all()
+    rows = list(
+        db.scalars(
+            query.order_by(Booking.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+        ).all()
+    )
+    passengers_by_booking: dict[uuid.UUID, list[BookingPassenger]] = {row.id: [] for row in rows}
+    if rows:
+        for passenger in db.scalars(
+            select(BookingPassenger).where(BookingPassenger.booking_id.in_([row.id for row in rows]))
+        ).all():
+            passengers_by_booking[passenger.booking_id].append(passenger)
     return {
-        "items": [_booking_out(row) for row in rows],
+        "items": [
+            _booking_out(row, passengers=passengers_by_booking.get(row.id, []))
+            for row in rows
+        ],
         "total": db.scalar(count) or 0,
         "page": page,
         "page_size": page_size,
@@ -1244,7 +1274,7 @@ def ticket_booking(
     )
     _transition(db, request, user, booking, "ticketed")
     db.commit()
-    return _booking_out(booking)
+    return _booking_out(booking, db=db)
 
 
 @router.post("/bookings/{booking_id}/cancel", dependencies=write_access)
@@ -1271,7 +1301,7 @@ def cancel_booking(
     supplier.cancel(booking.supplier_reference)
     _transition(db, request, user, booking, "cancelled", reason)
     db.commit()
-    return _booking_out(booking)
+    return _booking_out(booking, db=db)
 
 
 @router.post("/bookings/{booking_id}/void", dependencies=write_access)
@@ -1298,7 +1328,7 @@ def void_booking(
     supplier.cancel(booking.supplier_reference)
     _transition(db, request, user, booking, "voided", reason)
     db.commit()
-    return _booking_out(booking)
+    return _booking_out(booking, db=db)
 
 
 @router.post("/bookings/{booking_id}/refund", status_code=201, dependencies=write_access)

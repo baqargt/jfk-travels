@@ -200,6 +200,12 @@ export interface Quote {
   offer: SupplierOffer;
 }
 
+export interface ApiBookingPassenger {
+  id: string;
+  passengerType: string;
+  snapshot: Record<string, unknown>;
+}
+
 export interface ApiBooking {
   id: string;
   reference: string;
@@ -209,6 +215,7 @@ export interface ApiBooking {
   currency: string;
   totalAmount: string;
   details: Record<string, unknown>;
+  passengers?: ApiBookingPassenger[];
   createdAt: string;
   updatedAt: string;
 }

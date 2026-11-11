@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, CalendarCheck2, CircleCheckBig, Plus, XCircle } from "lucide-react";
+import { Ban, CalendarCheck2, CircleCheckBig, Plus, Ticket, XCircle } from "lucide-react";
 import { apiRequest } from "@/api/client";
 import type { ApiBooking, ApiPage } from "@/api/types";
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
@@ -12,6 +12,7 @@ import Modal from "@/components/ui/Modal";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import { useAuth } from "@/context/AuthContext";
+import TicketPreview from "@/features/booking/components/TicketPreview";
 import { fmtDate } from "@/lib/utils";
 import { PATHS } from "@/routes/paths";
 
@@ -57,6 +58,7 @@ export default function BookingsPage() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [toCancel, setToCancel] = useState<ApiBooking | null>(null);
+  const [ticketBooking, setTicketBooking] = useState<ApiBooking | null>(null);
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState("");
   const [notice, setNotice] = useState("");
@@ -149,12 +151,20 @@ export default function BookingsPage() {
       header: "",
       headerClassName: "!text-right",
       className: "!text-right",
-      render: (booking) => cancellableStatuses.has(booking.status) && canCancel ? (
-        <Button variant="ghost" size="sm" className="text-rose-600 hover:bg-rose-50 hover:text-rose-700" onClick={() => openCancellation(booking)}>
-          <Ban className="h-3.5 w-3.5" />
-          Cancel
-        </Button>
-      ) : null,
+      render: (booking) => (
+        <div className="flex items-center justify-end gap-1">
+          <Button variant="ghost" size="sm" onClick={() => setTicketBooking(booking)}>
+            <Ticket className="h-3.5 w-3.5" />
+            Ticket
+          </Button>
+          {cancellableStatuses.has(booking.status) && canCancel ? (
+            <Button variant="ghost" size="sm" className="text-rose-600 hover:bg-rose-50 hover:text-rose-700" onClick={() => openCancellation(booking)}>
+              <Ban className="h-3.5 w-3.5" />
+              Cancel
+            </Button>
+          ) : null}
+        </div>
+      ),
     },
   ];
 
@@ -194,6 +204,12 @@ export default function BookingsPage() {
             <option value="cancelled">Cancelled</option>
           </Select>
         )}
+      />
+
+      <TicketPreview
+        booking={ticketBooking}
+        open={Boolean(ticketBooking)}
+        onClose={() => setTicketBooking(null)}
       />
 
       <Modal
