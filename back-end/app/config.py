@@ -47,6 +47,8 @@ class Settings(BaseSettings):
 
     max_upload_bytes: int = Field(default=20 * 1024 * 1024)
 
+    turnstile_secret_key: str = ""
+
     @property
     def origins(self) -> list[str]:
         return [value.strip() for value in self.allowed_origins.split(",") if value.strip()]

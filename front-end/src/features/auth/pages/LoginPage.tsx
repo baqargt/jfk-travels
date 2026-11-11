@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AlertTriangle, LoaderCircle } from "lucide-react";
+import Turnstile, { isTurnstileEnabled } from "@/components/Turnstile";
 import Button from "@/components/ui/Button";
 import Input, { FormField, PasswordInput } from "@/components/ui/Input";
 import { useAuth } from "@/context/AuthContext";
@@ -23,9 +24,12 @@ export default function LoginPage() {
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from;
 
+  const turnstileEnabled = isTurnstileEnabled();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -33,15 +37,25 @@ export default function LoginPage() {
     return <Navigate to={from ?? PATHS.dashboard} replace />;
   }
 
+  const resetTurnstile = () => {
+    setTurnstileToken("");
+    setTurnstileResetKey((current) => current + 1);
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
+    if (turnstileEnabled && !turnstileToken) {
+      setError("Please complete the captcha challenge.");
+      return;
+    }
     setLoading(true);
     try {
-      await login(email.trim(), password);
+      await login(email.trim(), password, turnstileToken || undefined);
       navigate(from ?? PATHS.dashboard, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign-in failed.");
+      resetTurnstile();
       setLoading(false);
     }
   };
@@ -113,7 +127,15 @@ export default function LoginPage() {
                 </a>
               </div>
 
-              <Button type="submit" disabled={loading} className="w-full !py-2.5">
+              {turnstileEnabled && (
+                <Turnstile
+                  resetKey={turnstileResetKey}
+                  onToken={setTurnstileToken}
+                  onExpire={() => setTurnstileToken("")}
+                />
+              )}
+
+              <Button type="submit" disabled={loading || (turnstileEnabled && !turnstileToken)} className="w-full !py-2.5">
                 {loading && <LoaderCircle className="h-4 w-4 animate-spin" />}
                 {loading ? "Signing in..." : "Sign in"}
               </Button>

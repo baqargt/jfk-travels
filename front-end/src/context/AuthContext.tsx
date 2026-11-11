@@ -6,7 +6,7 @@ import type { AuthUser, Role } from "@/types";
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, turnstileToken?: string) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (name: string, email: string) => Promise<void>;
 }
@@ -40,10 +40,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { active = false; };
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string, turnstileToken?: string) => {
     const value = await apiRequest<ApiUser>("/auth/login", {
       method: "POST",
-      body: { email: email.trim(), password },
+      body: {
+        email: email.trim(),
+        password,
+        ...(turnstileToken ? { turnstileToken } : {}),
+      },
       retryAuth: false,
     });
     setUser(mapUser(value));

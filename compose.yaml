@@ -125,6 +125,7 @@ services:
       context: ./front-end
       args:
         VITE_API_URL: /api/v1
+        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-}
     restart: unless-stopped
     expose: ["80"]
     networks: [private]

@@ -21,6 +21,7 @@ from app.security import (
     verify_password,
 )
 from app.services import audit, user_payload
+from app.turnstile import verify_turnstile_token
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -55,6 +56,10 @@ def _set_cookies(response: Response, access: str, refresh: str, csrf: str) -> No
 
 @router.post("/login", response_model=UserOut)
 def login(data: LoginInput, request: Request, response: Response, db: Session = Depends(get_db)):
+    verify_turnstile_token(
+        data.turnstile_token,
+        remote_ip=request.client.host if request.client else "",
+    )
     user = db.scalar(select(User).where(User.email == data.email.lower()))
     if not user or not verify_password(data.password, user.password_hash):
         raise ApiError(401, "Sign in failed", "Invalid email or password.")

@@ -27,6 +27,7 @@ class Problem(BaseModel):
 class LoginInput(ApiModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+    turnstile_token: str | None = None
 
 
 class UserOut(ApiModel):
