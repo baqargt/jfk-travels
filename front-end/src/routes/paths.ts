@@ -37,6 +37,7 @@ export const PATHS = {
   },
   users: "/users",
   createUser: "/users/new",
+  viewUser: (userId: string) => `/users/${userId}`,
   editUser: (userId: string) => `/users/${userId}/edit`,
   travellerProfiles: "/traveller-profiles",
   createTravellerProfile: "/traveller-profiles/new",

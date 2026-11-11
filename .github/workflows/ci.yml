@@ -2,8 +2,9 @@ name: CI
 
 on:
   push:
+    branches: [ "main" ]
   pull_request:
-
+    branches: [ "main" ]
 jobs:
   frontend:
     runs-on: ubuntu-latest
@@ -52,7 +53,7 @@ jobs:
           cache-dependency-path: back-end/requirements-dev.txt
       - run: pip install -r requirements-dev.txt
       - run: ruff check app tests
-      - run: pytest
       - run: alembic upgrade head
+      - run: pytest -n auto
       - run: alembic downgrade base
       - run: alembic upgrade head

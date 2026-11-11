@@ -43,6 +43,7 @@ const router = createBrowserRouter([
       { path: "users", lazy: page(() => import("@/features/users/pages/UsersPage")) },
       { path: "users/new", lazy: page(() => import("@/features/users/pages/CreateUserPage")) },
       { path: "users/:userId/edit", lazy: page(() => import("@/features/users/pages/CreateUserPage")) },
+      { path: "users/:userId", lazy: page(() => import("@/features/users/pages/UserProfilePage")) },
       { path: "traveller-profiles", lazy: page(() => import("@/features/traveller-profiles/pages/TravellerProfilesPage")) },
       { path: "traveller-profiles/new", lazy: page(() => import("@/features/traveller-profiles/pages/CreateTravellerProfilePage")) },
       { path: "traveller-profiles/:travellerId/edit", lazy: page(() => import("@/features/traveller-profiles/pages/CreateTravellerProfilePage")) },

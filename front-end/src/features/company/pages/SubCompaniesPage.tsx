@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Pencil, Plus } from "lucide-react";
+import { Eye, Pencil, Plus } from "lucide-react";
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
 import Badge, { StatusBadge } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
 import PageHeader from "@/components/ui/PageHeader";
 import { apiRequest } from "@/api/client";
 import { apiStatus, type ApiBranch, type ApiPage } from "@/api/types";
@@ -12,6 +14,7 @@ import { PATHS } from "@/routes/paths";
 import type { SubCompany } from "@/types";
 
 export default function SubCompaniesPage() {
+  const [selected, setSelected] = useState<SubCompany | null>(null);
   const { data, isLoading, error } = useQuery({
     queryKey: ["branches"],
     queryFn: () => apiRequest<ApiPage<ApiBranch>>("/branches?page_size=100"),
@@ -72,11 +75,22 @@ export default function SubCompaniesPage() {
       headerClassName: "!text-right",
       className: "!text-right",
       render: (s) => (
-        <Link to={PATHS.company.editSubCompany(s.id)} title="Edit sub company">
-          <Button variant="ghost" size="icon" className="!h-8 !w-8 text-slate-400 hover:text-brand-600">
-            <Pencil className="h-4 w-4" />
+        <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="!h-8 !w-8 text-slate-400 hover:text-brand-600"
+            title="View sub company"
+            onClick={() => setSelected(s)}
+          >
+            <Eye className="h-4 w-4" />
           </Button>
-        </Link>
+          <Link to={PATHS.company.editSubCompany(s.id)} title="Edit sub company">
+            <Button variant="ghost" size="icon" className="!h-8 !w-8 text-slate-400 hover:text-brand-600">
+              <Pencil className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
       ),
     },
   ];
@@ -104,6 +118,47 @@ export default function SubCompaniesPage() {
       />
       {isLoading && <p className="mt-3 text-sm text-slate-500">Loading sub-companies...</p>}
       {error && <p className="mt-3 text-sm text-rose-600">{error instanceof Error ? error.message : "Sub-companies could not be loaded."}</p>}
+
+      <Modal
+        open={Boolean(selected)}
+        onClose={() => setSelected(null)}
+        title={selected ? selected.name : "Sub Company"}
+        subtitle={selected ? `${selected.type} · ${selected.id}` : undefined}
+        size="lg"
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setSelected(null)}>Close</Button>
+            {selected && (
+              <Link to={PATHS.company.editSubCompany(selected.id)}>
+                <Button>
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </Button>
+              </Link>
+            )}
+          </>
+        )}
+      >
+        {selected && (
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+            {[
+              ["Type", selected.type],
+              ["Location", selected.location || "—"],
+              ["Manager", selected.manager || "—"],
+              ["Users", String(selected.users)],
+              ["Credit Limit", fmtMoney(selected.creditLimit)],
+              ["Cash Balance", fmtMoney(selected.cashBalance)],
+              ["Status", selected.status],
+              ["Onboarded", fmtDate(selected.createdAt)],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <dt className="text-[11px] font-medium tracking-wide text-slate-400 uppercase">{label}</dt>
+                <dd className="mt-0.5 text-sm font-semibold text-slate-800">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </Modal>
     </>
   );
 }

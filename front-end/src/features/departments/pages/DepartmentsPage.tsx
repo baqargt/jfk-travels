@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Eye, Pencil, Plus, Trash2 } from "lucide-react";
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -14,16 +14,20 @@ import { fmtDate } from "@/lib/utils";
 import { PATHS } from "@/routes/paths";
 import type { Department } from "@/types";
 
+type DepartmentRow = Department & { code?: string };
+
 export default function DepartmentsPage() {
   const queryClient = useQueryClient();
-  const [toDelete, setToDelete] = useState<Department | null>(null);
+  const [toDelete, setToDelete] = useState<DepartmentRow | null>(null);
+  const [selected, setSelected] = useState<DepartmentRow | null>(null);
   const { data, isLoading, error } = useQuery({
     queryKey: ["departments"],
     queryFn: () => apiRequest<ApiPage<ApiDepartment>>("/departments?page_size=100"),
   });
-  const list: Department[] = (data?.items ?? []).map((department) => ({
+  const list: DepartmentRow[] = (data?.items ?? []).map((department) => ({
     id: department.id,
     name: department.name,
+    code: department.code,
     head: department.headName,
     users: department.users,
     status: apiStatus(department.status),
@@ -40,8 +44,8 @@ export default function DepartmentsPage() {
   });
 
   const toggleStatus = (id: string) => {
-    const selected = list.find((department) => department.id === id);
-    if (selected) updateDepartment.mutate({ id, status: selected.status === "Active" ? "inactive" : "active" });
+    const department = list.find((item) => item.id === id);
+    if (department) updateDepartment.mutate({ id, status: department.status === "Active" ? "inactive" : "active" });
   };
 
   const confirmDelete = () => {
@@ -49,14 +53,14 @@ export default function DepartmentsPage() {
     setToDelete(null);
   };
 
-  const columns: Column<Department>[] = [
+  const columns: Column<DepartmentRow>[] = [
     {
       key: "name",
       header: "Department",
       render: (d) => (
         <div>
           <p className="font-semibold text-slate-900">{d.name}</p>
-          <p className="font-mono text-[11px] text-slate-400">{d.id}</p>
+          <p className="font-mono text-[11px] text-slate-400">{d.code ?? d.id}</p>
         </div>
       ),
     },
@@ -81,6 +85,15 @@ export default function DepartmentsPage() {
       className: "!text-right",
       render: (d) => (
         <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="!h-8 !w-8 text-slate-400 hover:text-brand-600"
+            title="View department"
+            onClick={() => setSelected(d)}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
           <Link to={PATHS.departments.edit(d.id)} title="Edit department">
             <Button variant="ghost" size="icon" className="!h-8 !w-8 text-slate-400 hover:text-brand-600">
               <Pencil className="h-4 w-4" />
@@ -125,6 +138,44 @@ export default function DepartmentsPage() {
 
       {isLoading && <p className="mt-3 text-sm text-slate-500">Loading departments...</p>}
       {error && <p className="mt-3 text-sm text-rose-600">{error instanceof Error ? error.message : "Departments could not be loaded."}</p>}
+
+      <Modal
+        open={Boolean(selected)}
+        onClose={() => setSelected(null)}
+        title={selected ? selected.name : "Department"}
+        subtitle={selected ? `${selected.code ?? selected.id}` : undefined}
+        size="lg"
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setSelected(null)}>Close</Button>
+            {selected && (
+              <Link to={PATHS.departments.edit(selected.id)}>
+                <Button>
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </Button>
+              </Link>
+            )}
+          </>
+        )}
+      >
+        {selected && (
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+            {[
+              ["Code", selected.code || "—"],
+              ["Head", selected.head || "—"],
+              ["Users", String(selected.users)],
+              ["Status", selected.status],
+              ["Created", fmtDate(selected.createdAt)],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <dt className="text-[11px] font-medium tracking-wide text-slate-400 uppercase">{label}</dt>
+                <dd className="mt-0.5 text-sm font-semibold text-slate-800">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </Modal>
 
       <Modal
         open={!!toDelete}

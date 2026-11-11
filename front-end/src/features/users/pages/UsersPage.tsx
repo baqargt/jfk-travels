@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Archive, Eye, Pencil, Plus } from "lucide-react";
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -24,7 +24,7 @@ const roleVariant: Record<Role, "red" | "violet" | "blue" | "amber" | "gray"> = 
 
 export default function UsersPage() {
   const queryClient = useQueryClient();
-  const [toDelete, setToDelete] = useState<AppUser | null>(null);
+  const [toArchive, setToArchive] = useState<AppUser | null>(null);
   const { data, isLoading, error } = useQuery({
     queryKey: ["users"],
     queryFn: () => apiRequest<ApiPage<ApiUser>>("/users?page_size=100"),
@@ -43,7 +43,7 @@ export default function UsersPage() {
       apiRequest(`/users/${id}`, { method: "PATCH", body }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
   });
-  const deactivateUser = useMutation({
+  const archiveUser = useMutation({
     mutationFn: (id: string) => apiRequest<void>(`/users/${id}`, { method: "DELETE" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
   });
@@ -53,9 +53,9 @@ export default function UsersPage() {
     if (selected) updateUser.mutate({ id, body: { status: selected.status === "Active" ? "inactive" : "active" } });
   };
 
-  const confirmDelete = () => {
-    if (toDelete) deactivateUser.mutate(toDelete.id);
-    setToDelete(null);
+  const confirmArchive = () => {
+    if (toArchive) archiveUser.mutate(toArchive.id);
+    setToArchive(null);
   };
 
   const columns: Column<AppUser>[] = [
@@ -100,6 +100,11 @@ export default function UsersPage() {
       className: "!text-right",
       render: (u) => (
         <div className="flex justify-end gap-1">
+          <Link to={PATHS.viewUser(u.id)} title="View user">
+            <Button variant="ghost" size="icon" className="!h-8 !w-8 text-slate-400 hover:text-brand-600">
+              <Eye className="h-4 w-4" />
+            </Button>
+          </Link>
           <Link to={PATHS.editUser(u.id)} title="Edit user">
             <Button variant="ghost" size="icon" className="!h-8 !w-8 text-slate-400 hover:text-brand-600">
               <Pencil className="h-4 w-4" />
@@ -109,10 +114,10 @@ export default function UsersPage() {
             variant="ghost"
             size="icon"
             className="!h-8 !w-8 text-slate-400 hover:text-rose-600"
-            title="Delete user"
-            onClick={() => setToDelete(u)}
+            title="Archive user"
+            onClick={() => setToArchive(u)}
           >
-            <Trash2 className="h-4 w-4" />
+            <Archive className="h-4 w-4" />
           </Button>
         </div>
       ),
@@ -146,25 +151,25 @@ export default function UsersPage() {
       {error && <p className="mt-3 text-sm text-rose-600">{error instanceof Error ? error.message : "Users could not be loaded."}</p>}
 
       <Modal
-        open={!!toDelete}
-        onClose={() => setToDelete(null)}
-        title="Deactivate user?"
+        open={!!toArchive}
+        onClose={() => setToArchive(null)}
+        title="Archive user?"
         subtitle="The account will immediately lose access."
         size="sm"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setToDelete(null)}>
+            <Button variant="secondary" onClick={() => setToArchive(null)}>
               Cancel
             </Button>
-            <Button variant="danger" onClick={confirmDelete} disabled={deactivateUser.isPending}>
-              Deactivate account
+            <Button variant="danger" onClick={confirmArchive} disabled={archiveUser.isPending}>
+              Archive account
             </Button>
           </>
         }
       >
         <p className="text-sm text-slate-600">
-          You're about to deactivate <span className="font-semibold text-slate-900">{toDelete?.name}</span>{" "}
-          (<StatusBadge status="Inactive" /> account). Their booking history will be retained and
+          You're about to archive <span className="font-semibold text-slate-900">{toArchive?.name}</span>{" "}
+          (<StatusBadge status="Inactive" />. Their booking history will be retained and
           they will immediately lose system access.
         </p>
       </Modal>
