@@ -53,6 +53,42 @@ user_roles = Table(
     Column("role_id", Uuid(as_uuid=True), ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
 )
 
+access_profile_permissions = Table(
+    "access_profile_permissions",
+    Base.metadata,
+    Column(
+        "access_profile_id",
+        Uuid(as_uuid=True),
+        ForeignKey("access_profiles.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "permission_id",
+        Uuid(as_uuid=True),
+        ForeignKey("permissions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+)
+
+customer_branches = Table(
+    "customer_branches",
+    Base.metadata,
+    Column("customer_id", Uuid(as_uuid=True), ForeignKey("customers.id", ondelete="CASCADE"), primary_key=True),
+    Column("branch_id", Uuid(as_uuid=True), ForeignKey("branches.id", ondelete="CASCADE"), primary_key=True),
+)
+
+customer_suppliers = Table(
+    "customer_suppliers",
+    Base.metadata,
+    Column("customer_id", Uuid(as_uuid=True), ForeignKey("customers.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "supplier_connection_id",
+        Uuid(as_uuid=True),
+        ForeignKey("supplier_connections.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+)
+
 
 class Company(TimestampMixin, Base):
     __tablename__ = "companies"
@@ -115,6 +151,18 @@ class Department(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(20), default="active")
 
 
+class JobTitle(TimestampMixin, Base):
+    __tablename__ = "job_titles"
+    __table_args__ = (UniqueConstraint("company_id", "name", name="uq_job_title_company_name"),)
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"), index=True)
+    branch_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("branches.id", ondelete="SET NULL"))
+    code: Mapped[str] = mapped_column(String(30))
+    name: Mapped[str] = mapped_column(String(120))
+    status: Mapped[str] = mapped_column(String(20), default="active")
+
+
 class Permission(Base):
     __tablename__ = "permissions"
 
@@ -132,6 +180,22 @@ class Role(Base):
     permissions: Mapped[list[Permission]] = relationship(secondary=role_permissions, lazy="selectin")
 
 
+class AccessProfile(TimestampMixin, Base):
+    __tablename__ = "access_profiles"
+    __table_args__ = (UniqueConstraint("company_id", "name", name="uq_access_profile_company_name"),)
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"), index=True)
+    branch_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("branches.id", ondelete="SET NULL"))
+    name: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str] = mapped_column(String(250), default="")
+    status: Mapped[str] = mapped_column(String(20), default="active")
+    preset_key: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    permissions: Mapped[list[Permission]] = relationship(
+        secondary=access_profile_permissions, lazy="selectin"
+    )
+
+
 class User(TimestampMixin, Base):
     __tablename__ = "users"
 
@@ -139,12 +203,18 @@ class User(TimestampMixin, Base):
     company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"), index=True)
     branch_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("branches.id", ondelete="SET NULL"))
     department_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("departments.id", ondelete="SET NULL"))
+    job_title_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("job_titles.id", ondelete="SET NULL"))
+    access_profile_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("access_profiles.id", ondelete="SET NULL")
+    )
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
     display_name: Mapped[str] = mapped_column(String(180))
     password_hash: Mapped[str] = mapped_column(String(255))
     status: Mapped[str] = mapped_column(String(20), default="active", index=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     roles: Mapped[list[Role]] = relationship(secondary=user_roles, lazy="selectin")
+    access_profile: Mapped[AccessProfile | None] = relationship(lazy="selectin")
+    job_title: Mapped[JobTitle | None] = relationship(lazy="selectin")
 
 
 class RefreshSession(Base):
@@ -187,6 +257,9 @@ class Customer(TimestampMixin, Base):
     branch_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("branches.id", ondelete="SET NULL"), index=True
     )
+    pricing_model_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("pricing_models.id", ondelete="SET NULL"), index=True
+    )
     account_code: Mapped[str] = mapped_column(String(50))
     agent_code: Mapped[str] = mapped_column(String(50))
     name: Mapped[str] = mapped_column(String(180), index=True)
@@ -197,6 +270,10 @@ class Customer(TimestampMixin, Base):
     default_currency: Mapped[str] = mapped_column(String(3), default="USD")
     status: Mapped[str] = mapped_column(String(20), default="active", index=True)
     profile: Mapped[dict] = mapped_column(JSON, default=dict)
+    branches: Mapped[list[Branch]] = relationship(secondary=customer_branches, lazy="selectin")
+    suppliers: Mapped[list[SupplierConnection]] = relationship(
+        secondary=customer_suppliers, lazy="selectin"
+    )
 
 
 class CustomerAddress(TimestampMixin, Base):

@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, or_, select
@@ -7,11 +8,22 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import branch_scope, get_current_user, require_csrf, require_roles
-from app.errors import conflict, not_found
-from app.models import Customer, PricingModel, PricingRuleVersion, Traveller, User
+from app.errors import ApiError, conflict, not_found
+from app.models import (
+    Branch,
+    Company,
+    Customer,
+    ExchangeRate,
+    PricingModel,
+    PricingRuleVersion,
+    SupplierConnection,
+    Traveller,
+    User,
+)
 from app.schemas import (
     CustomerInput,
     CustomerOut,
+    MatrixOut,
     Page,
     PricingModelDetailOut,
     PricingModelInput,
@@ -20,10 +32,106 @@ from app.schemas import (
     TravellerInput,
 )
 from app.security import encrypt_sensitive
-from app.services import audit, customer_agent_code
+from app.services import audit, customer_agent_code, customer_payload
 
 router = APIRouter(tags=["Business records"])
 write_access = [Depends(require_csrf)]
+
+
+def _assert_roe_covers_currency(db: Session, company: Company, currency: str) -> None:
+    currency = currency.upper()
+    if currency == company.base_currency.upper():
+        return
+    rate = db.scalar(
+        select(ExchangeRate)
+        .where(
+            ExchangeRate.company_id == company.id,
+            ExchangeRate.base_currency == company.base_currency.upper(),
+            ExchangeRate.quote_currency == currency,
+            ExchangeRate.effective_date <= date.today(),
+        )
+        .order_by(ExchangeRate.effective_date.desc())
+        .limit(1)
+    )
+    if not rate:
+        raise ApiError(
+            400,
+            "Missing exchange rate",
+            f"No ROE found for {company.base_currency}/{currency}. Add an exchange rate first.",
+        )
+
+
+def _load_customer_links(
+    db: Session,
+    company_id: uuid.UUID,
+    pricing_model_id: uuid.UUID,
+    branch_ids: list[uuid.UUID],
+    supplier_connection_ids: list[uuid.UUID],
+) -> tuple[PricingModel, list[Branch], list[SupplierConnection]]:
+    pricing = db.scalar(
+        select(PricingModel).where(
+            PricingModel.id == pricing_model_id, PricingModel.company_id == company_id
+        )
+    )
+    if not pricing:
+        raise not_found("Pricing model")
+    branches = db.scalars(
+        select(Branch).where(
+            Branch.company_id == company_id,
+            Branch.id.in_(branch_ids),
+            Branch.status == "active",
+        )
+    ).all()
+    if len(branches) != len(set(branch_ids)):
+        raise ApiError(400, "Invalid branches", "One or more branches are invalid or inactive.")
+    suppliers = db.scalars(
+        select(SupplierConnection).where(
+            SupplierConnection.company_id == company_id,
+            SupplierConnection.id.in_(supplier_connection_ids),
+        )
+    ).all()
+    if len(suppliers) != len(set(supplier_connection_ids)):
+        raise ApiError(400, "Invalid suppliers", "One or more supplier connections are invalid.")
+    return pricing, list(branches), list(suppliers)
+
+
+def _apply_customer_input(
+    db: Session, user: User, customer: Customer, data: CustomerInput, *, creating: bool
+) -> None:
+    company = db.get(Company, user.company_id)
+    if not company:
+        raise not_found("Company")
+    _assert_roe_covers_currency(db, company, data.default_currency)
+    _, branches, suppliers = _load_customer_links(
+        db, user.company_id, data.pricing_model_id, data.branch_ids, data.supplier_connection_ids
+    )
+    profile = dict(data.profile or {})
+    selection = str(profile.get("profileSelection", "Non-Mandatory"))
+    if selection not in {"Mandatory", "Non-Mandatory", "Skip"}:
+        raise ApiError(400, "Invalid profile selection", "Use Mandatory, Non-Mandatory, or Skip.")
+    if creating and selection == "Mandatory":
+        customer.status = "pending_traveller"
+    customer.account_code = data.account_code
+    customer.name = data.name
+    customer.email = str(data.email).lower()
+    customer.telephone = data.telephone
+    customer.mobile = data.mobile
+    customer.website = data.website
+    customer.default_currency = data.default_currency.upper()
+    customer.pricing_model_id = data.pricing_model_id
+    customer.branch_id = branches[0].id
+    customer.branches = branches
+    customer.suppliers = suppliers
+    customer.profile = profile
+    if selection == "Mandatory" and not creating:
+        traveller_count = (
+            db.scalar(
+                select(func.count()).select_from(Traveller).where(Traveller.customer_id == customer.id)
+            )
+            or 0
+        )
+        if traveller_count < 1 and customer.status == "active":
+            customer.status = "pending_traveller"
 
 
 @router.get("/customers", response_model=Page)
@@ -51,12 +159,52 @@ def list_customers(
         query, count = query.where(Customer.status == status), count.where(Customer.status == status)
     rows = db.scalars(
         query.order_by(Customer.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
-    ).all()
+    ).unique().all()
     return {
-        "items": [CustomerOut.model_validate(row).model_dump(by_alias=True) for row in rows],
+        "items": [customer_payload(row) for row in rows],
         "total": db.scalar(count) or 0,
         "page": page,
         "page_size": page_size,
+    }
+
+
+@router.get("/customers/matrix", response_model=MatrixOut)
+def customers_matrix(
+    branch_type: str | None = Query(default=None, pattern="^(Branch|Franchise)$"),
+    user: User = Depends(require_roles("Administrator", "Manager", "Agent")),
+    db: Session = Depends(get_db),
+):
+    branch_query = select(Branch).where(
+        Branch.company_id == user.company_id,
+        Branch.status == "active",
+        branch_scope(Branch.id, user),
+    )
+    if branch_type:
+        branch_query = branch_query.where(Branch.branch_type == branch_type)
+    branches = db.scalars(branch_query.order_by(Branch.name)).all()
+    customers = db.scalars(
+        select(Customer)
+        .where(Customer.company_id == user.company_id, branch_scope(Customer.branch_id, user))
+        .order_by(Customer.name)
+    ).unique().all()
+    return {
+        "branches": [
+            {"id": str(branch.id), "name": branch.name, "branchType": branch.branch_type, "code": branch.code}
+            for branch in branches
+        ],
+        "rows": [
+            {
+                "id": str(row.id),
+                "name": row.name,
+                "accountCode": row.account_code,
+                "pricingModelId": str(row.pricing_model_id) if row.pricing_model_id else None,
+                "cells": {
+                    str(branch.id): branch.id in {b.id for b in row.branches} or row.branch_id == branch.id
+                    for branch in branches
+                },
+            }
+            for row in customers
+        ],
     }
 
 
@@ -69,10 +217,10 @@ def create_customer(
 ):
     customer = Customer(
         company_id=user.company_id,
-        branch_id=user.branch_id,
         agent_code=customer_agent_code(db),
-        **data.model_dump(),
+        status="active",
     )
+    _apply_customer_input(db, user, customer, data, creating=True)
     db.add(customer)
     audit(db, request, user, "customer.create", "customer", customer.id)
     try:
@@ -80,7 +228,8 @@ def create_customer(
     except IntegrityError as exc:
         db.rollback()
         raise conflict("The account code or generated agent code already exists.") from exc
-    return customer
+    db.refresh(customer)
+    return customer_payload(customer)
 
 
 @router.get("/customers/{customer_id}", response_model=CustomerOut)
@@ -98,7 +247,7 @@ def get_customer(
     )
     if not customer:
         raise not_found("Customer")
-    return customer
+    return customer_payload(customer)
 
 
 @router.put("/customers/{customer_id}", response_model=CustomerOut, dependencies=write_access)
@@ -118,11 +267,11 @@ def update_customer(
     )
     if not customer:
         raise not_found("Customer")
-    for key, value in data.model_dump().items():
-        setattr(customer, key, value)
+    _apply_customer_input(db, user, customer, data, creating=False)
     audit(db, request, user, "customer.update", "customer", customer.id)
     db.commit()
-    return customer
+    db.refresh(customer)
+    return customer_payload(customer)
 
 
 @router.delete("/customers/{customer_id}", status_code=204, dependencies=write_access)

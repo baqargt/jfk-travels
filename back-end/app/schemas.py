@@ -38,6 +38,8 @@ class UserOut(ApiModel):
     company_id: uuid.UUID
     branch_id: uuid.UUID | None = None
     department_id: uuid.UUID | None = None
+    job_title_id: uuid.UUID | None = None
+    access_profile_id: uuid.UUID | None = None
     roles: list[str]
     permissions: list[str]
     last_login_at: datetime | None = None
@@ -136,17 +138,66 @@ class UserInput(ApiModel):
     name: str = Field(min_length=2, max_length=180)
     email: EmailStr
     password: str = Field(min_length=10, max_length=128)
-    role: str
-    branch_id: uuid.UUID | None = None
-    department_id: uuid.UUID | None = None
+    branch_id: uuid.UUID
+    department_id: uuid.UUID
+    job_title_id: uuid.UUID
+    access_profile_id: uuid.UUID
 
 
 class UserUpdate(ApiModel):
     name: str | None = Field(default=None, min_length=2, max_length=180)
-    role: str | None = None
     branch_id: uuid.UUID | None = None
     department_id: uuid.UUID | None = None
+    job_title_id: uuid.UUID | None = None
+    access_profile_id: uuid.UUID | None = None
     status: str | None = Field(default=None, pattern="^(active|inactive|suspended)$")
+
+
+class JobTitleInput(ApiModel):
+    name: str = Field(min_length=2, max_length=120)
+    branch_id: uuid.UUID | None = None
+
+
+class JobTitleUpdate(ApiModel):
+    name: str | None = Field(default=None, min_length=2, max_length=120)
+    branch_id: uuid.UUID | None = None
+    status: str | None = Field(default=None, pattern="^(active|inactive)$")
+
+
+class JobTitleOut(ApiModel):
+    id: uuid.UUID
+    code: str
+    name: str
+    branch_id: uuid.UUID | None
+    status: str
+    created_at: datetime
+
+
+class AccessProfileInput(ApiModel):
+    name: str = Field(min_length=2, max_length=120)
+    description: str = Field(default="", max_length=250)
+    branch_id: uuid.UUID | None = None
+    permission_keys: list[str] = Field(default_factory=list)
+    from_preset: str | None = None
+
+
+class AccessProfileUpdate(ApiModel):
+    name: str | None = Field(default=None, min_length=2, max_length=120)
+    description: str | None = Field(default=None, max_length=250)
+    branch_id: uuid.UUID | None = None
+    permission_keys: list[str] | None = None
+    status: str | None = Field(default=None, pattern="^(active|inactive)$")
+
+
+class AccessProfileOut(ApiModel):
+    id: uuid.UUID
+    name: str
+    description: str
+    branch_id: uuid.UUID | None
+    status: str
+    preset_key: str | None = None
+    permission_keys: list[str] = Field(default_factory=list)
+    created_at: datetime
 
 
 class CustomerInput(ApiModel):
@@ -157,15 +208,34 @@ class CustomerInput(ApiModel):
     mobile: str = Field(default="", max_length=40)
     website: str = Field(default="", max_length=250)
     default_currency: str = Field(default="USD", min_length=3, max_length=3)
+    pricing_model_id: uuid.UUID
+    branch_ids: list[uuid.UUID] = Field(min_length=1)
+    supplier_connection_ids: list[uuid.UUID] = Field(min_length=1)
     profile: dict[str, Any] = Field(default_factory=dict)
 
 
-class CustomerOut(CustomerInput):
+class CustomerOut(ApiModel):
     id: uuid.UUID
     branch_id: uuid.UUID | None
+    branch_ids: list[uuid.UUID] = Field(default_factory=list)
+    pricing_model_id: uuid.UUID | None = None
+    supplier_connection_ids: list[uuid.UUID] = Field(default_factory=list)
+    account_code: str
     agent_code: str
+    name: str
+    email: EmailStr
+    telephone: str = ""
+    mobile: str = ""
+    website: str = ""
+    default_currency: str
     status: str
+    profile: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
+
+
+class MatrixOut(ApiModel):
+    branches: list[dict[str, Any]]
+    rows: list[dict[str, Any]]
 
 
 class TravellerInput(ApiModel):

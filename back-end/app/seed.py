@@ -18,6 +18,7 @@ from app.models import (
     User,
 )
 from app.security import encrypt_sensitive, hash_password
+from app.services import ensure_company_access_profiles, ensure_default_job_title
 
 PERMISSIONS = [
     "dashboard.read",
@@ -122,19 +123,32 @@ def run() -> None:
             db.add(department)
             db.flush()
 
+        profiles = ensure_company_access_profiles(db, company.id, ROLE_PERMISSIONS, permission_rows)
+        staff_title = ensure_default_job_title(db, company.id, branch.id)
+
         admin = db.scalar(select(User).where(User.email == settings.admin_email.lower()))
         if not admin:
-            db.add(
-                User(
-                    company_id=company.id,
-                    branch_id=branch.id,
-                    department_id=department.id,
-                    email=settings.admin_email.lower(),
-                    display_name=settings.admin_name,
-                    password_hash=hash_password(settings.admin_password),
-                    roles=[roles["Administrator"]],
-                )
+            admin = User(
+                company_id=company.id,
+                branch_id=branch.id,
+                department_id=department.id,
+                job_title_id=staff_title.id,
+                access_profile_id=profiles["Administrator"].id,
+                email=settings.admin_email.lower(),
+                display_name=settings.admin_name,
+                password_hash=hash_password(settings.admin_password),
             )
+            db.add(admin)
+            db.flush()
+        else:
+            if not admin.job_title_id:
+                admin.job_title_id = staff_title.id
+            if not admin.access_profile_id:
+                admin.access_profile_id = profiles["Administrator"].id
+            if not admin.department_id:
+                admin.department_id = department.id
+            if not admin.branch_id:
+                admin.branch_id = branch.id
 
         manager = db.scalar(select(User).where(User.email == settings.manager_email.lower()))
         if not manager and settings.environment == "development":
@@ -143,12 +157,39 @@ def run() -> None:
                     company_id=company.id,
                     branch_id=branch.id,
                     department_id=department.id,
+                    job_title_id=staff_title.id,
+                    access_profile_id=profiles["Manager"].id,
                     email=settings.manager_email.lower(),
                     display_name="JFK Demo Manager",
                     password_hash=hash_password(settings.manager_password),
-                    roles=[roles["Manager"]],
                 )
             )
+        elif manager:
+            if not manager.job_title_id:
+                manager.job_title_id = staff_title.id
+            if not manager.access_profile_id:
+                manager.access_profile_id = profiles["Manager"].id
+
+        # Backfill any remaining users missing org links
+        orphan_users = db.scalars(
+            select(User).where(
+                User.company_id == company.id,
+                (User.job_title_id.is_(None)) | (User.access_profile_id.is_(None)),
+            )
+        ).all()
+        for user in orphan_users:
+            if not user.job_title_id:
+                user.job_title_id = staff_title.id
+            if not user.access_profile_id:
+                preset = "Agent"
+                legacy = user.roles[0].name if user.roles else "Agent"
+                if legacy in profiles:
+                    preset = legacy
+                user.access_profile_id = profiles[preset].id
+            if not user.department_id:
+                user.department_id = department.id
+            if not user.branch_id:
+                user.branch_id = branch.id
 
         cash = db.scalar(
             select(FinancialAccount).where(
@@ -195,6 +236,7 @@ def run() -> None:
             if not customer:
                 customer = Customer(
                     company_id=company.id,
+                    branch_id=branch.id,
                     account_code="AC-1001",
                     agent_code="AGT-000001",
                     name="Atlas Corporate Travel",
@@ -205,6 +247,7 @@ def run() -> None:
                 )
                 db.add(customer)
                 db.flush()
+                customer.branches = [branch]
                 db.add(
                     Traveller(
                         company_id=company.id,

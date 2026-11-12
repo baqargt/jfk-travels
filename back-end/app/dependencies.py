@@ -50,23 +50,44 @@ def require_csrf(
         raise ApiError(403, "CSRF validation failed", "Refresh the page and try again.")
 
 
+def role_names_for(user: User) -> set[str]:
+    """Compatibility role names from Access Profile (preset/name) with legacy user_roles fallback."""
+    names: set[str] = set()
+    if user.access_profile is not None:
+        if user.access_profile.preset_key:
+            names.add(user.access_profile.preset_key)
+        names.add(user.access_profile.name)
+    names.update(role.name for role in user.roles)
+    return names
+
+
+def permissions_for(user: User) -> list[str]:
+    if user.access_profile is not None:
+        return sorted({permission.key for permission in user.access_profile.permissions})
+    return sorted({permission.key for role in user.roles for permission in role.permissions})
+
+
 def require_roles(*roles: str) -> Callable:
     def dependency(user: User = Depends(get_current_user)) -> User:
-        names = {role.name for role in user.roles}
-        if not names.intersection(roles):
+        if not role_names_for(user).intersection(roles):
             raise forbidden()
         return user
 
     return dependency
 
 
-def permissions_for(user: User) -> list[str]:
-    return sorted({permission.key for role in user.roles for permission in role.permissions})
+def require_permissions(*keys: str) -> Callable:
+    def dependency(user: User = Depends(get_current_user)) -> User:
+        granted = set(permissions_for(user))
+        if not set(keys).issubset(granted):
+            raise forbidden()
+        return user
+
+    return dependency
 
 
 def branch_scope(column, user: User):
     """Scope branch-owned rows; HQ administrators retain company-wide visibility."""
-    role_names = {role.name for role in user.roles}
-    if user.branch_id is None or "Administrator" in role_names:
+    if user.branch_id is None or "Administrator" in role_names_for(user):
         return true()
     return or_(column == user.branch_id, column.is_(None))

@@ -92,10 +92,27 @@ export const NAV_GROUPS: NavGroup[] = [
         ],
       },
       {
+        label: "Job Titles",
+        icon: Briefcase,
+        children: [
+          { label: "View Job Titles", icon: Users, path: PATHS.jobTitles.list },
+          { label: "Create Job Title", icon: UserPlus, path: PATHS.jobTitles.create },
+        ],
+      },
+      {
+        label: "Access Profiles",
+        icon: ShieldCheck,
+        children: [
+          { label: "View Access Profiles", icon: Users, path: PATHS.accessProfiles.list },
+          { label: "Create Access Profile", icon: UserPlus, path: PATHS.accessProfiles.create },
+        ],
+      },
+      {
         label: "Customers",
         icon: Users,
         children: [
           { label: "View Customers", icon: Users, path: PATHS.customers.list },
+          { label: "Matrix View", icon: Layers, path: PATHS.customers.matrix },
           { label: "Create Customer", icon: UserPlus, path: PATHS.customers.create },
         ],
       },
@@ -104,6 +121,7 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: Users,
         children: [
           { label: "View Users", icon: Users, path: PATHS.users },
+          { label: "Matrix View", icon: Layers, path: PATHS.usersMatrix },
           { label: "Create User", icon: UserPlus, path: PATHS.createUser },
         ],
       },

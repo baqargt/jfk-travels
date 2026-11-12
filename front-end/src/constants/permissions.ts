@@ -6,6 +6,8 @@ export type AreaKey =
   | "booking"
   | "company"
   | "departments"
+  | "jobTitles"
+  | "accessProfiles"
   | "customers"
   | "users"
   | "travellerProfiles"
@@ -14,9 +16,35 @@ export type AreaKey =
   | "limits";
 
 export const ROLE_AREAS: Record<Role, AreaKey[]> = {
-  Administrator: ["dashboard", "booking", "company", "departments", "customers", "users", "travellerProfiles", "pricing", "reports", "limits"],
-  Manager: ["dashboard", "booking", "company", "departments", "customers", "travellerProfiles", "pricing", "reports", "limits"],
-  Agent: ["dashboard", "booking", "travellerProfiles", "reports"],
+  Administrator: [
+    "dashboard",
+    "booking",
+    "company",
+    "departments",
+    "jobTitles",
+    "accessProfiles",
+    "customers",
+    "users",
+    "travellerProfiles",
+    "pricing",
+    "reports",
+    "limits",
+  ],
+  Manager: [
+    "dashboard",
+    "booking",
+    "company",
+    "departments",
+    "jobTitles",
+    "accessProfiles",
+    "customers",
+    "users",
+    "travellerProfiles",
+    "pricing",
+    "reports",
+    "limits",
+  ],
+  Agent: ["dashboard", "booking", "customers", "travellerProfiles", "reports"],
   Accounts: ["dashboard", "reports", "limits"],
   "Sub Agent": ["dashboard", "booking", "travellerProfiles"],
 };
@@ -25,6 +53,8 @@ export function areaForPath(path: string): AreaKey {
   if (path.startsWith("/booking")) return "booking";
   if (path.startsWith("/company")) return "company";
   if (path.startsWith("/departments")) return "departments";
+  if (path.startsWith("/job-titles")) return "jobTitles";
+  if (path.startsWith("/access-profiles")) return "accessProfiles";
   if (path.startsWith("/customers")) return "customers";
   if (path.startsWith("/users")) return "users";
   if (path.startsWith("/traveller-profiles")) return "travellerProfiles";

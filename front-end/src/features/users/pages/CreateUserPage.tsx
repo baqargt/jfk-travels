@@ -1,14 +1,20 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CircleCheck, RotateCcw } from "lucide-react";
+import { CircleCheck } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { FormField, Input, PasswordInput, Select } from "@/components/ui/Input";
 import PageHeader, { Card } from "@/components/ui/PageHeader";
 import { apiRequest } from "@/api/client";
-import type { ApiBranch, ApiDepartment, ApiPage, ApiUser } from "@/api/types";
+import type {
+  ApiAccessProfile,
+  ApiBranch,
+  ApiDepartment,
+  ApiJobTitle,
+  ApiPage,
+  ApiUser,
+} from "@/api/types";
 import { PATHS } from "@/routes/paths";
-import type { Role } from "@/types";
 
 const MODULES = [
   "Dashboard",
@@ -21,47 +27,37 @@ const MODULES = [
   "Limits",
 ] as const;
 
-const BOOKING_ACCESS = ["All", "Air", "Hotel", "Insurance", "Transfer", "Holiday", "Sightseeing", "Fix Departure", "A to A"] as const;
-const REPORT_ACCESS = ["All", "DSR", "Air", "Non-Air"] as const;
-const TRANSACTION_ACCESS = ["All", "Own", "Users", "Branch", "Head Office", "Sub-Agent"] as const;
-const DASHBOARD_ITEMS = [
-  "Total Sales & Expenses",
-  "Month-wise Query Flow",
-  "Top Selling Destinations",
-  "Top 10 Agents",
-  "Top 10 Suppliers",
-  "Top 10 Airlines",
-  "Limit Utilization",
-  "Settlement due",
-  "Query Source",
-  "Query-wise Status",
-  "Quick Booking",
-  "Transaction Table",
-] as const;
-
-const TITLES = ["Mr.", "Ms.", "Mrs."] as const;
-const ACCESS_PROFILES = ["Manager", "Accounts", "Sales", "Ticketing"] as const;
-const LIMITS = ["N/A", "Specify", "Unlimited"] as const;
-const CUSTOMERS = ["All", "B2B", "B2C", "Corporate", "Tele Sales"] as const;
-const ADHOC_MARKUP = ["YES", "NO"] as const;
-
 type Perm = "view" | "create" | "edit" | "delete";
 const PERMS: Perm[] = ["view", "create", "edit", "delete"];
 
-type Matrix = Record<string, Record<Perm, boolean>>;
-
-function emptyMatrix(): Matrix {
-  return Object.fromEntries(MODULES.map((m) => [m, Object.fromEntries(PERMS.map((p) => [p, false]))])) as Matrix;
-}
-
-const ROLE_PRESETS: Record<Role, (m: string, p: Perm) => boolean> = {
-  Administrator: () => true,
-  Manager: (m, p) => !(p === "delete" && (m === "Users" || m === "Company")),
-  Agent: (m, p) =>
-    m === "Booking Engine" ? p !== "delete" : m === "Traveller Profiles" ? p === "view" || p === "create" : m === "Reports" || m === "Dashboard" ? p === "view" : false,
-  Accounts: (m) => m === "Reports" || m === "Limits" || m === "Dashboard",
-  "Sub Agent": (m, p) => (m === "Booking Engine" || m === "Traveller Profiles") && p !== "delete",
+const PERMISSION_TO_CELL: Record<string, { module: (typeof MODULES)[number]; perm: Perm }> = {
+  "dashboard.read": { module: "Dashboard", perm: "view" },
+  "booking.read": { module: "Booking Engine", perm: "view" },
+  "booking.write": { module: "Booking Engine", perm: "create" },
+  "company.read": { module: "Company", perm: "view" },
+  "company.write": { module: "Company", perm: "edit" },
+  "user.manage": { module: "Users", perm: "edit" },
+  "traveller.read": { module: "Traveller Profiles", perm: "view" },
+  "traveller.write": { module: "Traveller Profiles", perm: "create" },
+  "pricing.read": { module: "Pricing", perm: "view" },
+  "pricing.write": { module: "Pricing", perm: "edit" },
+  "report.read": { module: "Reports", perm: "view" },
+  "finance.read": { module: "Limits", perm: "view" },
+  "finance.write": { module: "Limits", perm: "edit" },
 };
+
+function matrixFromKeys(keys: string[]) {
+  const matrix = Object.fromEntries(
+    MODULES.map((m) => [m, Object.fromEntries(PERMS.map((p) => [p, false]))]),
+  ) as Record<string, Record<Perm, boolean>>;
+  for (const key of keys) {
+    const cell = PERMISSION_TO_CELL[key];
+    if (!cell) continue;
+    matrix[cell.module][cell.perm] = true;
+    if (cell.perm === "create" || cell.perm === "edit") matrix[cell.module].view = true;
+  }
+  return matrix;
+}
 
 export default function CreateUserPage() {
   const navigate = useNavigate();
@@ -76,37 +72,29 @@ export default function CreateUserPage() {
     queryKey: ["departments"],
     queryFn: () => apiRequest<ApiPage<ApiDepartment>>("/departments?page_size=100"),
   });
+  const { data: jobTitleData } = useQuery({
+    queryKey: ["job-titles"],
+    queryFn: () => apiRequest<ApiPage<ApiJobTitle>>("/job-titles?page_size=100"),
+  });
+  const { data: accessProfileData } = useQuery({
+    queryKey: ["access-profiles"],
+    queryFn: () => apiRequest<ApiPage<ApiAccessProfile>>("/access-profiles?page_size=100"),
+  });
   const { data: existingUser, isLoading: loadingUser, error: loadError } = useQuery({
     queryKey: ["users", userId],
     queryFn: () => apiRequest<ApiUser>(`/users/${userId}`),
     enabled: isEdit,
   });
+
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<Role>("Agent");
-  const [subCompany, setSubCompany] = useState("");
-  const [matrix, setMatrix] = useState<Matrix>(() => {
-    const m = emptyMatrix();
-    MODULES.forEach((mod) => PERMS.forEach((p) => (m[mod][p] = ROLE_PRESETS.Agent(mod, p))));
-    return m;
-  });
+  const [branchId, setBranchId] = useState("");
+  const [departmentId, setDepartmentId] = useState("");
+  const [jobTitleId, setJobTitleId] = useState("");
+  const [accessProfileId, setAccessProfileId] = useState("");
   const [saving, setSaving] = useState(false);
-  const [bookingAccess, setBookingAccess] = useState<string>("All");
-  const [reportAccess, setReportAccess] = useState<string>("All");
-  const [transactionAccess, setTransactionAccess] = useState<string>("All");
-  const [dashboardAccess, setDashboardAccess] = useState<Set<string>>(new Set(DASHBOARD_ITEMS));
-  const [title, setTitle] = useState<string>("Mr");
-  const [dob, setDob] = useState("");
-  const [empCode, setEmpCode] = useState("");
-  const [mobile, setMobile] = useState("");
-  const [accessProfile, setAccessProfile] = useState<string>("Manager");
-  const [department, setDepartment] = useState<string>("");
-  const [limit, setLimit] = useState<string>("N/A");
-  const [limitAmount, setLimitAmount] = useState("");
-  const [customer, setCustomer] = useState<string>("All");
-  const [adhocMarkup, setAdhocMarkup] = useState<string>("NO");
   const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
@@ -115,56 +103,57 @@ export default function CreateUserPage() {
     setFirstName(parts[0] ?? "");
     setLastName(parts.slice(1).join(" "));
     setEmail(existingUser.email);
-    const nextRole = (existingUser.roles[0] ?? "Agent") as Role;
-    applyRole(nextRole);
-    setSubCompany(existingUser.branchId ?? "");
-    setDepartment(existingUser.departmentId ?? "");
+    setBranchId(existingUser.branchId ?? "");
+    setDepartmentId(existingUser.departmentId ?? "");
+    setJobTitleId(existingUser.jobTitleId ?? "");
+    setAccessProfileId(existingUser.accessProfileId ?? "");
   }, [existingUser]);
 
-  const applyRole = (next: Role) => {
-    setRole(next);
-    const m = emptyMatrix();
-    MODULES.forEach((mod) => PERMS.forEach((p) => (m[mod][p] = ROLE_PRESETS[next](mod, p))));
-    setMatrix(m);
-  };
+  const selectedProfile = useMemo(
+    () => (accessProfileData?.items ?? []).find((item) => item.id === accessProfileId),
+    [accessProfileData, accessProfileId],
+  );
+  const matrix = useMemo(
+    () => matrixFromKeys(selectedProfile?.permissionKeys ?? []),
+    [selectedProfile],
+  );
 
-  const flip = (mod: string, perm: Perm) =>
-    setMatrix((prev) => ({ ...prev, [mod]: { ...prev[mod], [perm]: !prev[mod][perm] } }));
+  const departments = useMemo(() => {
+    const items = departmentData?.items ?? [];
+    if (!branchId) return items;
+    return items.filter((item) => !item.branchId || item.branchId === branchId);
+  }, [departmentData, branchId]);
 
-  const toggleDashboardItem = (item: string) =>
-    setDashboardAccess((prev) => {
-      const next = new Set(prev);
-      if (next.has(item)) next.delete(item);
-      else next.add(item);
-      return next;
-    });
+  const jobTitles = useMemo(() => {
+    const items = jobTitleData?.items ?? [];
+    if (!branchId) return items;
+    return items.filter((item) => !item.branchId || item.branchId === branchId);
+  }, [jobTitleData, branchId]);
+
+  const accessProfiles = useMemo(() => {
+    const items = accessProfileData?.items ?? [];
+    if (!branchId) return items;
+    return items.filter((item) => !item.branchId || item.branchId === branchId);
+  }, [accessProfileData, branchId]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setSubmitError("");
     try {
+      const body = {
+        name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+        branchId,
+        departmentId,
+        jobTitleId,
+        accessProfileId,
+      };
       if (isEdit && userId) {
-        await apiRequest(`/users/${userId}`, {
-          method: "PATCH",
-          body: {
-            name: `${firstName.trim()} ${lastName.trim()}`.trim(),
-            role,
-            branchId: subCompany || null,
-            departmentId: department || null,
-          },
-        });
+        await apiRequest(`/users/${userId}`, { method: "PATCH", body });
       } else {
         await apiRequest("/users", {
           method: "POST",
-          body: {
-            name: `${firstName.trim()} ${lastName.trim()}`,
-            email: email.trim(),
-            password,
-            role,
-            branchId: subCompany || null,
-            departmentId: department || null,
-          },
+          body: { ...body, email: email.trim(), password },
         });
       }
       await queryClient.invalidateQueries({ queryKey: ["users"] });
@@ -185,17 +174,17 @@ export default function CreateUserPage() {
     firstName.trim() &&
     lastName.trim() &&
     email.includes("@") &&
+    branchId &&
+    departmentId &&
+    jobTitleId &&
+    accessProfileId &&
     (isEdit || password.length >= 10);
 
   return (
     <>
       <PageHeader
         title={isEdit ? "Edit User" : "Create User"}
-        description={
-          isEdit
-            ? "Update platform account details and role-based permissions."
-            : "Add a platform account and define granular role-based permissions."
-        }
+        description="Users must be linked to a branch, department, job title, and access profile."
       />
 
       {isEdit && loadingUser && <p className="mb-4 text-sm text-slate-500">Loading user...</p>}
@@ -207,29 +196,16 @@ export default function CreateUserPage() {
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card title="Account Details">
-          {submitError && <p className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{submitError}</p>}
+          {submitError && (
+            <p className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{submitError}</p>
+          )}
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-6">
-            <FormField label="Title" required className="sm:col-span-2">
-              <Select value={title} onChange={(e) => setTitle(e.target.value)}>
-                {TITLES.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </Select>
-            </FormField>
-            <FormField label="First name" required className="sm:col-span-2">
+            <FormField label="First name" required className="sm:col-span-3">
               <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Jane" />
             </FormField>
-            <FormField label="Last name" required className="sm:col-span-2">
+            <FormField label="Last name" required className="sm:col-span-3">
               <Input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Doe" />
             </FormField>
-
-            <FormField label="DOB" className="sm:col-span-3">
-              <Input type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
-            </FormField>
-            <FormField label="EMP-Code" className="sm:col-span-3">
-              <Input value={empCode} onChange={(e) => setEmpCode(e.target.value)} placeholder="JFK-00123" />
-            </FormField>
-
             <FormField label="Email address" required className="sm:col-span-3">
               <Input
                 type="email"
@@ -240,126 +216,63 @@ export default function CreateUserPage() {
               />
             </FormField>
             {!isEdit && (
-              <FormField label="Temporary password" required hint="User will be prompted to change on first login" className="sm:col-span-3">
+              <FormField
+                label="Temporary password"
+                required
+                hint="User will be prompted to change on first login"
+                className="sm:col-span-3"
+              >
                 <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} />
               </FormField>
             )}
-
-            <FormField label="Mobile" className="sm:col-span-3">
-              <Input type="tel" value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="+92 300 0000000" />
+            <FormField label="Sub company / Branch" required className="sm:col-span-3">
+              <Select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+                <option value="">Select branch</option>
+                {(branchData?.items ?? [])
+                  .filter((item) => item.status === "active")
+                  .map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name} ({item.branchType})
+                    </option>
+                  ))}
+              </Select>
             </FormField>
-            <FormField label="Access Profile" required hint="Manager, Accounts, Sales, Ticketing" className="sm:col-span-3">
-              <Select value={accessProfile} onChange={(e) => setAccessProfile(e.target.value)}>
-                {ACCESS_PROFILES.map((p) => (
-                  <option key={p} value={p}>{p}</option>
+            <FormField label="Department" required className="sm:col-span-3">
+              <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}>
+                <option value="">Select department</option>
+                {departments.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
                 ))}
               </Select>
             </FormField>
-
-            <FormField label="Department" className="sm:col-span-3">
-              <Select value={department} onChange={(e) => setDepartment(e.target.value)}>
-                <option value="">No department</option>
-                {(departmentData?.items ?? []).map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </Select>
-            </FormField>
-            <FormField label="Limit" hint="Choose a spending limit for this user" className="sm:col-span-3">
-              <Select value={limit} onChange={(e) => setLimit(e.target.value)}>
-                {LIMITS.map((l) => (
-                  <option key={l} value={l}>{l}</option>
-                ))}
-              </Select>
-              {limit === "Specify" && (
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={limitAmount}
-                  onChange={(e) => setLimitAmount(e.target.value)}
-                  placeholder="Amount"
-                  className="mt-2"
-                />
-              )}
-            </FormField>
-
-            <FormField label="Customer" hint="Customer segment this user can see" className="sm:col-span-3">
-              <Select value={customer} onChange={(e) => setCustomer(e.target.value)}>
-                {CUSTOMERS.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </Select>
-            </FormField>
-            <FormField label="Adhoc Markup" hint="Allow one-off markup overrides" className="sm:col-span-3">
-              <Select value={adhocMarkup} onChange={(e) => setAdhocMarkup(e.target.value)}>
-                {ADHOC_MARKUP.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </Select>
-            </FormField>
-
-            <FormField label="Sub company" className="sm:col-span-3">
-              <Select value={subCompany} onChange={(e) => setSubCompany(e.target.value)}>
-                <option value="">Company-wide</option>
-                {(branchData?.items ?? []).map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
+            <FormField label="Job title" required className="sm:col-span-3">
+              <Select value={jobTitleId} onChange={(e) => setJobTitleId(e.target.value)}>
+                <option value="">Select job title</option>
+                {jobTitles.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
                 ))}
               </Select>
             </FormField>
             <FormField
-              label="Role"
+              label="Access profile"
               required
-              hint={`Presets a sensible permission baseline — refine below`}
+              hint="Rights come from the selected access profile"
               className="sm:col-span-3"
             >
-              <Select value={role} onChange={(e) => applyRole(e.target.value as Role)}>
-                {(Object.keys(ROLE_PRESETS) as Role[]).map((r) => (
-                  <option key={r}>{r}</option>
+              <Select value={accessProfileId} onChange={(e) => setAccessProfileId(e.target.value)}>
+                <option value="">Select access profile</option>
+                {accessProfiles.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
                 ))}
               </Select>
-            </FormField>
-
-            <FormField label="Booking Access" hint="Modules this user can book" className="sm:col-span-3">
-              <Select value={bookingAccess} onChange={(e) => setBookingAccess(e.target.value)}>
-                {BOOKING_ACCESS.map((b) => (
-                  <option key={b} value={b}>{b}</option>
-                ))}
-              </Select>
-            </FormField>
-
-            <FormField label="Report Access" hint="Reports this user can view" className="sm:col-span-3">
-              <Select value={reportAccess} onChange={(e) => setReportAccess(e.target.value)}>
-                {REPORT_ACCESS.map((r) => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </Select>
-            </FormField>
-
-            <FormField label="Transaction" hint="Scope of transactions visible to this user" className="sm:col-span-6">
-              <Select value={transactionAccess} onChange={(e) => setTransactionAccess(e.target.value)}>
-                {TRANSACTION_ACCESS.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </Select>
-            </FormField>
-
-            <FormField label="Dashboard Access" hint="Multi-select dashboard widgets" className="sm:col-span-6">
-              <div className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200 bg-slate-50/50 p-3 sm:grid-cols-2">
-                {DASHBOARD_ITEMS.map((item) => (
-                  <label key={item} className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={dashboardAccess.has(item)}
-                      onChange={() => toggleDashboardItem(item)}
-                      className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-brand-600"
-                    />
-                    {item}
-                  </label>
-                ))}
-              </div>
             </FormField>
           </div>
-
           <div className="mt-6 flex items-center justify-end gap-2 border-t border-slate-100 pt-5">
             <Button variant="ghost" onClick={() => navigate(-1)}>
               Cancel
@@ -376,20 +289,8 @@ export default function CreateUserPage() {
         </Card>
 
         <Card
-          title="Access Control (RBAC)"
-          description="Toggle module-level permissions for this user"
-          actions={
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => applyRole(role)}
-              title="Reapply role preset"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Reset to preset
-            </Button>
-          }
+          title="Access Profile Preview"
+          description="Read-only rights from the selected access profile. Edit rights on Access Profiles."
           bodyClassName="p-0 overflow-x-auto"
         >
           <table className="w-full text-sm">
@@ -412,8 +313,9 @@ export default function CreateUserPage() {
                       <input
                         type="checkbox"
                         checked={matrix[mod][perm]}
-                        onChange={() => flip(mod, perm)}
-                        className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-brand-600"
+                        readOnly
+                        disabled
+                        className="h-4 w-4 rounded border-slate-300 accent-brand-600"
                         aria-label={`${perm} ${mod}`}
                       />
                     </td>

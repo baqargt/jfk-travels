@@ -22,7 +22,14 @@ import {
 } from "@/features/customers/customerData";
 import { createCustomer, getCustomer, updateCustomer } from "@/features/customers/customerRepository";
 import { apiRequest } from "@/api/client";
-import type { ApiBranch, ApiDepartment, ApiPage, ApiPricingModel, ApiUser } from "@/api/types";
+import type {
+  ApiBranch,
+  ApiDepartment,
+  ApiPage,
+  ApiPricingModel,
+  ApiUser,
+  SupplierConnection,
+} from "@/api/types";
 import { PATHS } from "@/routes/paths";
 import type { Customer, CustomerAddress, CustomerContact, CustomerDocument } from "@/types";
 
@@ -42,6 +49,8 @@ const initial: CustomerDraft = {
   customerTypes: [],
   customerChannels: [],
   branches: [],
+  branchIds: [],
+  supplierConnectionIds: [],
   paymentChannels: [],
   groupCompany: "",
   locationType: "Local",
@@ -68,9 +77,10 @@ const initial: CustomerDraft = {
   whiteLabel: "No",
   allowReissue: "No",
   dateTimeFormat: DATE_TIME_FORMATS[0],
-  defaultCurrency: "AED",
+  defaultCurrency: "USD",
   multiCurrencies: [],
   pricingModel: "",
+  pricingModelId: "",
   adhocMarkup: "No",
   dynamicPricingFields: [],
   admin: { ...EMPTY_CONTACT },
@@ -120,15 +130,21 @@ export default function CreateCustomerPage() {
   const { data: userPage } = useQuery({ queryKey: ["users", "customer-form"], queryFn: () => apiRequest<ApiPage<ApiUser>>("/users?page_size=100") });
   const { data: departmentPage } = useQuery({ queryKey: ["departments", "customer-form"], queryFn: () => apiRequest<ApiPage<ApiDepartment>>("/departments?page_size=100") });
   const { data: pricingPage } = useQuery({ queryKey: ["pricing-models", "customer-form"], queryFn: () => apiRequest<ApiPage<ApiPricingModel>>("/pricing-models?page_size=100") });
+  const { data: supplierPage } = useQuery({
+    queryKey: ["supplier-connections", "customer-form"],
+    queryFn: () => apiRequest<SupplierConnection[]>("/supplier-connections"),
+  });
   const { data: existing, isLoading: loadingCustomer, error: loadError } = useQuery({
     queryKey: ["customers", customerId],
     queryFn: () => getCustomer(customerId!),
     enabled: isEdit,
   });
-  const branches = ["All", ...(branchPage?.items ?? []).filter((item) => item.status === "active").map((item) => item.name)];
+  const activeBranches = (branchPage?.items ?? []).filter((item) => item.status === "active");
+  const branchOptions = activeBranches.map((item) => ({ value: item.id, label: `${item.name} (${item.branchType})` }));
+  const supplierOptions = (supplierPage ?? []).map((item) => ({ value: item.id, label: item.providerName }));
   const activeUsers = (userPage?.items ?? []).filter((item) => item.status === "active").map((item) => item.name);
   const departmentNames = (departmentPage?.items ?? []).filter((item) => item.status === "active").map((item) => item.name);
-  const pricingModels = (pricingPage?.items ?? []).map((item) => item.name);
+  const pricingModels = (pricingPage?.items ?? []).map((item) => ({ value: item.id, label: item.name }));
 
   useEffect(() => {
     if (!existing) return;
@@ -147,8 +163,17 @@ export default function CreateCustomerPage() {
     setErrors((current) => ({ ...current, [key]: "" }));
   };
 
-  const setMulti = (key: "customerTypes" | "customerChannels" | "branches" | "paymentChannels" | "businessTypes", next: string[]) => {
+  const setMulti = (
+    key: "customerTypes" | "customerChannels" | "paymentChannels" | "businessTypes",
+    next: string[],
+  ) => {
     setValue(key, exclusiveAllSelection(form[key], next));
+  };
+
+  const setBranchIds = (next: string[]) => {
+    const names = activeBranches.filter((item) => next.includes(item.id)).map((item) => item.name);
+    setForm((current) => ({ ...current, branchIds: next, branches: names }));
+    setErrors((current) => ({ ...current, branchIds: "", branches: "" }));
   };
 
   const setAddress = (kind: "companyAddress" | "billingAddress", key: keyof CustomerAddress, value: string) => {
@@ -176,7 +201,7 @@ export default function CreateCustomerPage() {
       if (!form.accountCode.trim()) next.accountCode = "Account code is required.";
       if (!form.customerTypes.length) next.customerTypes = "Select at least one customer type.";
       if (!form.customerChannels.length) next.customerChannels = "Select at least one customer channel.";
-      if (!form.branches.length) next.branches = "Select at least one branch.";
+      if (!form.branchIds.length) next.branchIds = "Select at least one branch.";
       if (!form.paymentChannels.length) next.paymentChannels = "Select at least one payment channel.";
       if (!form.businessTypes.length) next.businessTypes = "Select at least one business type.";
     }
@@ -200,7 +225,8 @@ export default function CreateCustomerPage() {
     }
     if (index === 3) {
       if (!form.defaultCurrency) next.defaultCurrency = "Select the default currency.";
-      if (!form.pricingModel) next.pricingModel = "Select a pricing model.";
+      if (!form.pricingModelId) next.pricingModelId = "Select a pricing model.";
+      if (!form.supplierConnectionIds.length) next.supplierConnectionIds = "Select at least one supplier.";
       if (!form.dynamicPricingFields.length) next.dynamicPricingFields = "Select at least one dynamic pricing field.";
     }
     if (index === 4) {
@@ -296,8 +322,8 @@ export default function CreateCustomerPage() {
                 <FormField label="Customer Channel" required error={errors.customerChannels}>
                   <MultiSelect options={asOptions(CUSTOMER_CHANNELS)} value={form.customerChannels} onChange={(next) => setMulti("customerChannels", next)} />
                 </FormField>
-                <FormField label="Default Branches" required error={errors.branches} hint="Select All for every branch">
-                  <MultiSelect options={asOptions(branches)} value={form.branches} onChange={(next) => setMulti("branches", next)} />
+                <FormField label="Default Branches" required error={errors.branchIds} hint="Company / subcompany / branch / franchise">
+                  <MultiSelect options={branchOptions} value={form.branchIds} onChange={setBranchIds} />
                 </FormField>
                 <FormField label="Payment Channels" required error={errors.paymentChannels}>
                   <MultiSelect options={asOptions(PAYMENT_CHANNELS)} value={form.paymentChannels} onChange={(next) => setMulti("paymentChannels", next)} />
@@ -379,12 +405,44 @@ export default function CreateCustomerPage() {
                 <FormField label="Multi Currency" hint="Additional settlement currencies">
                   <MultiSelect options={asOptions(CURRENCIES.filter((currency) => currency !== form.defaultCurrency))} value={form.multiCurrencies} onChange={(value) => setValue("multiCurrencies", value)} />
                 </FormField>
-                <SelectField label="Pricing Model" required value={form.pricingModel} values={pricingModels} onChange={(value) => setValue("pricingModel", value)} />
+                <FormField label="Pricing Model" required error={errors.pricingModelId}>
+                  <Select
+                    value={form.pricingModelId}
+                    onChange={(event) => {
+                      const id = event.target.value;
+                      const model = pricingModels.find((item) => item.value === id);
+                      setForm((current) => ({
+                        ...current,
+                        pricingModelId: id,
+                        pricingModel: model?.label ?? "",
+                      }));
+                      setErrors((current) => ({ ...current, pricingModelId: "" }));
+                    }}
+                  >
+                    <option value="">Select...</option>
+                    {pricingModels.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </Select>
+                </FormField>
+                <FormField label="Suppliers" required error={errors.supplierConnectionIds}>
+                  <MultiSelect
+                    options={supplierOptions}
+                    value={form.supplierConnectionIds}
+                    onChange={(value) => setValue("supplierConnectionIds", value)}
+                  />
+                </FormField>
                 <SelectField label="ADHOC Markup" value={form.adhocMarkup} values={["Yes", "No"]} onChange={(value) => setValue("adhocMarkup", value as Customer["adhocMarkup"])} />
                 <FormField label="Dynamic Pricing Fields" required error={errors.dynamicPricingFields} className="md:col-span-2">
                   <MultiSelect options={asOptions(DYNAMIC_PRICING_FIELDS)} value={form.dynamicPricingFields} onChange={(value) => setValue("dynamicPricingFields", value)} />
                 </FormField>
-                {(errors.defaultCurrency || errors.pricingModel) && <p className="text-sm text-rose-600 md:col-span-2">Select a default currency and pricing model.</p>}
+                {(errors.defaultCurrency || errors.pricingModelId || errors.supplierConnectionIds) && (
+                  <p className="text-sm text-rose-600 md:col-span-2">
+                    Select currency, pricing model, and at least one supplier. Currency must have ROE vs company base.
+                  </p>
+                )}
               </div>
             )}
 

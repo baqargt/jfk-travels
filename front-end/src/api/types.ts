@@ -15,9 +15,41 @@ export interface ApiUser {
   companyId: string;
   branchId: string | null;
   departmentId: string | null;
+  jobTitleId: string | null;
+  accessProfileId: string | null;
   roles: Role[];
   permissions: string[];
   lastLoginAt: string | null;
+}
+
+export interface ApiJobTitle {
+  id: string;
+  code: string;
+  name: string;
+  branchId: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export interface ApiAccessProfile {
+  id: string;
+  name: string;
+  description: string;
+  branchId: string | null;
+  status: string;
+  presetKey: string | null;
+  permissionKeys: string[];
+  createdAt: string;
+}
+
+export interface ApiMatrix {
+  branches: Array<{ id: string; name: string; branchType: string; code: string }>;
+  rows: Array<{
+    id: string;
+    name: string;
+    cells: Record<string, boolean>;
+    [key: string]: unknown;
+  }>;
 }
 
 export interface ApiBranch {
@@ -73,6 +105,9 @@ export interface ApiDepartment {
 export interface ApiCustomer {
   id: string;
   branchId: string | null;
+  branchIds: string[];
+  pricingModelId: string | null;
+  supplierConnectionIds: string[];
   accountCode: string;
   agentCode: string;
   name: string;
@@ -239,6 +274,8 @@ export interface ApiPricingModelDetail extends ApiPricingModel {
 
 export const apiStatus = (status: string): AccountStatus => {
   const normalized = status.toLowerCase();
-  return normalized === "suspended" ? "Suspended" : normalized === "active" ? "Active" : "Inactive";
+  if (normalized === "suspended") return "Suspended";
+  if (normalized === "active") return "Active";
+  return "Inactive";
 };
 

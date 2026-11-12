@@ -102,6 +102,8 @@ export interface Customer {
   customerTypes: string[];
   customerChannels: string[];
   branches: string[];
+  branchIds: string[];
+  supplierConnectionIds: string[];
   paymentChannels: string[];
   groupCompany: string;
   locationType: "Local" | "Global" | "Regional";
@@ -131,6 +133,7 @@ export interface Customer {
   defaultCurrency: string;
   multiCurrencies: string[];
   pricingModel: string;
+  pricingModelId: string;
   adhocMarkup: "Yes" | "No";
   dynamicPricingFields: string[];
   admin: CustomerContact;

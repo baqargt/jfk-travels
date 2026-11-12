@@ -13,6 +13,8 @@ function fromApi(value: ApiCustomer): Customer {
     customerTypes: profile.customerTypes ?? [],
     customerChannels: profile.customerChannels ?? [],
     branches: profile.branches ?? [],
+    branchIds: value.branchIds ?? [],
+    supplierConnectionIds: value.supplierConnectionIds ?? [],
     paymentChannels: profile.paymentChannels ?? [],
     groupCompany: profile.groupCompany ?? "",
     locationType: profile.locationType ?? "Local",
@@ -42,6 +44,7 @@ function fromApi(value: ApiCustomer): Customer {
     defaultCurrency: value.defaultCurrency,
     multiCurrencies: profile.multiCurrencies ?? [],
     pricingModel: profile.pricingModel ?? "",
+    pricingModelId: value.pricingModelId ?? "",
     adhocMarkup: profile.adhocMarkup ?? "No",
     dynamicPricingFields: profile.dynamicPricingFields ?? [],
     admin: profile.admin ?? { firstName: "", lastName: "", designation: "", email: value.email },
@@ -62,7 +65,19 @@ export async function getCustomer(customerId: string): Promise<Customer> {
 }
 
 function toPayload(input: Omit<Customer, "id" | "agentCode" | "status" | "createdAt">) {
-  const { accountCode, name, email, telephone, mobile, website, defaultCurrency, ...profile } = input;
+  const {
+    accountCode,
+    name,
+    email,
+    telephone,
+    mobile,
+    website,
+    defaultCurrency,
+    pricingModelId,
+    branchIds,
+    supplierConnectionIds,
+    ...profile
+  } = input;
   return {
     accountCode,
     name,
@@ -71,7 +86,15 @@ function toPayload(input: Omit<Customer, "id" | "agentCode" | "status" | "create
     mobile,
     website,
     defaultCurrency,
-    profile: { ...profile, admin: input.admin, accountsContact: input.accountsContact },
+    pricingModelId,
+    branchIds,
+    supplierConnectionIds,
+    profile: {
+      ...profile,
+      admin: input.admin,
+      accountsContact: input.accountsContact,
+      profileSelection: input.profileSelection,
+    },
   };
 }
 
