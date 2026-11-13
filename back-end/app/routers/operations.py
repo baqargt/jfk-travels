@@ -23,7 +23,7 @@ from app.models import (
     User,
 )
 from app.schemas import FileCreateInput, Page
-from app.services import audit
+from app.services import audit, dashboard_destinations_chart, dashboard_sales_chart
 from app.storage import s3_client
 from app.tasks import scan_file
 
@@ -114,6 +114,42 @@ def dashboard_summary(user: User = Depends(get_current_user), db: Session = Depe
         "creditLimit": accounts[1],
         "currency": company.base_currency,
     }
+
+
+@router.get("/dashboard/charts/sales")
+def dashboard_sales(
+    days: int = Query(default=30, ge=1, le=365),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if user.is_super_admin or user.company_id is None:
+        raise ApiError(403, "Forbidden", "A company-scoped account is required.")
+    items = dashboard_sales_chart(
+        db,
+        user.company_id,
+        days=days,
+        branch_clause=branch_scope(Booking.branch_id, user),
+    )
+    return {"items": items, "days": days}
+
+
+@router.get("/dashboard/charts/destinations")
+def dashboard_destinations(
+    days: int = Query(default=30, ge=1, le=365),
+    limit: int = Query(default=8, ge=1, le=50),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if user.is_super_admin or user.company_id is None:
+        raise ApiError(403, "Forbidden", "A company-scoped account is required.")
+    items = dashboard_destinations_chart(
+        db,
+        user.company_id,
+        days=days,
+        limit=limit,
+        branch_clause=branch_scope(Booking.branch_id, user),
+    )
+    return {"items": items, "days": days}
 
 
 @router.get("/reports/{report_type}", response_model=Page)

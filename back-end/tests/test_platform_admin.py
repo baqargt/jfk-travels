@@ -111,6 +111,10 @@ def test_platform_dashboard_endpoints_require_auth() -> None:
         f"/api/v1/platform/companies/{company_id}/dashboard/summary",
         f"/api/v1/platform/companies/{company_id}/financial-accounts",
         f"/api/v1/platform/companies/{company_id}/reports/dsr",
+        f"/api/v1/platform/companies/{company_id}/dashboard/charts/sales",
+        f"/api/v1/platform/companies/{company_id}/dashboard/charts/destinations",
+        "/api/v1/dashboard/charts/sales",
+        "/api/v1/dashboard/charts/destinations",
     ]
     for path in paths:
         response = client.get(path)

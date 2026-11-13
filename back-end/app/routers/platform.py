@@ -36,6 +36,8 @@ from app.services import (
     audit,
     company_payload,
     company_usage,
+    dashboard_destinations_chart,
+    dashboard_sales_chart,
     department_code,
     ensure_company_access_profiles,
     ensure_default_job_title,
@@ -444,4 +446,34 @@ def company_dsr_report(
         "total": db.scalar(count_query) or 0,
         "page": page,
         "page_size": page_size,
+    }
+
+
+@router.get(
+    "/companies/{company_id}/dashboard/charts/sales",
+    dependencies=[Depends(require_super_admin)],
+)
+def company_dashboard_sales(
+    company_id: uuid.UUID,
+    days: int = Query(default=30, ge=1, le=365),
+    db: Session = Depends(get_db),
+):
+    _load_company(db, company_id)
+    return {"items": dashboard_sales_chart(db, company_id, days=days), "days": days}
+
+
+@router.get(
+    "/companies/{company_id}/dashboard/charts/destinations",
+    dependencies=[Depends(require_super_admin)],
+)
+def company_dashboard_destinations(
+    company_id: uuid.UUID,
+    days: int = Query(default=30, ge=1, le=365),
+    limit: int = Query(default=8, ge=1, le=50),
+    db: Session = Depends(get_db),
+):
+    _load_company(db, company_id)
+    return {
+        "items": dashboard_destinations_chart(db, company_id, days=days, limit=limit),
+        "days": days,
     }

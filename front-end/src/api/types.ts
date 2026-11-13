@@ -169,6 +169,28 @@ export interface DashboardSummary {
   currency: string;
 }
 
+export interface DashboardSalesPoint {
+  date: string;
+  label: string;
+  sales: number;
+}
+
+export interface DashboardSalesChart {
+  items: DashboardSalesPoint[];
+  days: number;
+}
+
+export interface DashboardDestinationPoint {
+  name: string;
+  bookings: number;
+  amount: number;
+}
+
+export interface DashboardDestinationsChart {
+  items: DashboardDestinationPoint[];
+  days: number;
+}
+
 export interface FinancialAccount {
   id: string;
   branchId: string | null;

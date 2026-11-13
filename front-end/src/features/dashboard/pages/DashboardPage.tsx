@@ -7,8 +7,17 @@ import Button from "@/components/ui/Button";
 import { Select } from "@/components/ui/Input";
 import PageHeader, { Card } from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
+import DestinationsChart from "@/features/dashboard/components/DestinationsChart";
+import SalesExpensesChart from "@/features/dashboard/components/SalesExpensesChart";
 import { apiRequest } from "@/api/client";
-import type { ApiCompany, ApiPage, DashboardSummary, FinancialAccount } from "@/api/types";
+import type {
+  ApiCompany,
+  ApiPage,
+  DashboardDestinationsChart,
+  DashboardSalesChart,
+  DashboardSummary,
+  FinancialAccount,
+} from "@/api/types";
 import { useAuth } from "@/context/AuthContext";
 import { fmtDate, fmtMoney, pct } from "@/lib/utils";
 import { PATHS } from "@/routes/paths";
@@ -57,40 +66,61 @@ export default function DashboardPage() {
   const companies = companiesPage?.items ?? [];
   const selectedCompany = companies.find((company) => company.id === companyId);
   const canLoadCompanyDashboard = isSuperAdmin && Boolean(companyId);
+  const chartsEnabled = isSuperAdmin ? canLoadCompanyDashboard : true;
 
   const { data: summary } = useQuery({
-    queryKey: isSuperAdmin
-      ? ["platform-dashboard-summary", companyId]
-      : ["dashboard-summary"],
+    queryKey: isSuperAdmin ? ["platform-dashboard-summary", companyId] : ["dashboard-summary"],
     queryFn: () =>
       isSuperAdmin
         ? apiRequest<DashboardSummary>(`/platform/companies/${companyId}/dashboard/summary`)
         : apiRequest<DashboardSummary>("/dashboard/summary"),
-    enabled: isSuperAdmin ? canLoadCompanyDashboard : true,
+    enabled: chartsEnabled,
   });
 
   const { data: accounts = [] } = useQuery({
-    queryKey: isSuperAdmin
-      ? ["platform-financial-accounts", companyId]
-      : ["financial-accounts"],
+    queryKey: isSuperAdmin ? ["platform-financial-accounts", companyId] : ["financial-accounts"],
     queryFn: () =>
       isSuperAdmin
         ? apiRequest<FinancialAccount[]>(`/platform/companies/${companyId}/financial-accounts`)
         : apiRequest<FinancialAccount[]>("/financial-accounts"),
-    enabled: isSuperAdmin ? canLoadCompanyDashboard : true,
+    enabled: chartsEnabled,
   });
 
   const { data: recent } = useQuery({
-    queryKey: isSuperAdmin
-      ? ["platform-dashboard-bookings", companyId]
-      : ["dashboard-bookings"],
+    queryKey: isSuperAdmin ? ["platform-dashboard-bookings", companyId] : ["dashboard-bookings"],
     queryFn: () =>
       isSuperAdmin
         ? apiRequest<ApiPage<RecentBooking>>(
             `/platform/companies/${companyId}/reports/dsr?page_size=8`,
           )
         : apiRequest<ApiPage<RecentBooking>>("/reports/dsr?page_size=8"),
-    enabled: isSuperAdmin ? canLoadCompanyDashboard : true,
+    enabled: chartsEnabled,
+  });
+
+  const { data: salesChart } = useQuery({
+    queryKey: isSuperAdmin
+      ? ["platform-dashboard-sales", companyId]
+      : ["dashboard-sales"],
+    queryFn: () =>
+      isSuperAdmin
+        ? apiRequest<DashboardSalesChart>(
+            `/platform/companies/${companyId}/dashboard/charts/sales?days=30`,
+          )
+        : apiRequest<DashboardSalesChart>("/dashboard/charts/sales?days=30"),
+    enabled: chartsEnabled,
+  });
+
+  const { data: destinationsChart } = useQuery({
+    queryKey: isSuperAdmin
+      ? ["platform-dashboard-destinations", companyId]
+      : ["dashboard-destinations"],
+    queryFn: () =>
+      isSuperAdmin
+        ? apiRequest<DashboardDestinationsChart>(
+            `/platform/companies/${companyId}/dashboard/charts/destinations?days=30&limit=8`,
+          )
+        : apiRequest<DashboardDestinationsChart>("/dashboard/charts/destinations?days=30&limit=8"),
+    enabled: chartsEnabled,
   });
 
   const cash = accounts.filter((item) => item.accountType === "cash");
@@ -124,6 +154,10 @@ export default function DashboardPage() {
     setSearchParams({ companyId: nextId }, { replace: true });
   };
 
+  const now = new Date();
+  const todayLabel = `${now.toLocaleDateString("en-US", { weekday: "long" })}, ${now.toLocaleDateString("en-US", { month: "long" })} ${now.getDate()} ${now.getFullYear()}`;
+  const companyDashboardDescription = `${todayLabel} · Here's what's happening across your agency today.`;
+
   return (
     <>
       <PageHeader
@@ -133,7 +167,7 @@ export default function DashboardPage() {
             ? selectedCompany
               ? `Reporting for ${selectedCompany.tradingName}`
               : "Select a company to view dashboard reporting."
-            : "Live operational and financial overview from PostgreSQL."
+            : companyDashboardDescription
         }
         actions={
           isSuperAdmin ? (
@@ -199,6 +233,15 @@ export default function DashboardPage() {
               tone="amber"
             />
           </div>
+
+          <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <SalesExpensesChart data={salesChart?.items ?? []} days={salesChart?.days ?? 30} />
+            <DestinationsChart
+              data={destinationsChart?.items ?? []}
+              days={destinationsChart?.days ?? 30}
+            />
+          </div>
+
           <div className="mt-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-3">
             <div className="xl:col-span-2">
               <DataTable
