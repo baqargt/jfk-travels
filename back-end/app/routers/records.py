@@ -32,7 +32,7 @@ from app.schemas import (
     TravellerInput,
 )
 from app.security import encrypt_sensitive
-from app.services import audit, customer_agent_code, customer_payload
+from app.services import assert_company_quota, audit, customer_agent_code, customer_payload
 
 router = APIRouter(tags=["Business records"])
 write_access = [Depends(require_csrf)]
@@ -350,6 +350,7 @@ def create_traveller(
     user: User = Depends(require_roles("Administrator", "Manager", "Agent", "Sub Agent")),
     db: Session = Depends(get_db),
 ):
+    assert_company_quota(db, user.company_id, "travellers")
     values = data.model_dump(exclude={"passport_number"})
     traveller = Traveller(
         company_id=user.company_id,

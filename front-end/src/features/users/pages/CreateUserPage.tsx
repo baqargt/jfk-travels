@@ -157,6 +157,7 @@ export default function CreateUserPage() {
         });
       }
       await queryClient.invalidateQueries({ queryKey: ["users"] });
+      await queryClient.invalidateQueries({ queryKey: ["company"] });
       navigate(PATHS.users, { replace: true });
     } catch (reason) {
       setSubmitError(

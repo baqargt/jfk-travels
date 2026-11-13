@@ -1,11 +1,15 @@
 import uuid
 from datetime import UTC, datetime
+from typing import Literal
 
 from fastapi import Request
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
-from app.models import AuditLog, Customer, Department, User
+from app.errors import conflict
+from app.models import AuditLog, Branch, Company, Customer, Department, Traveller, User
+
+QuotaKind = Literal["sub_companies", "users", "travellers"]
 
 
 def next_code(db: Session, model: type, field, prefix: str, width: int) -> str:
@@ -27,11 +31,16 @@ def audit(
     entity_type: str,
     entity_id: uuid.UUID | str,
     details: dict | None = None,
+    *,
+    company_id: uuid.UUID | None = None,
 ) -> None:
+    resolved_company_id = company_id if company_id is not None else user.company_id
+    if resolved_company_id is None:
+        return
     forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
     db.add(
         AuditLog(
-            company_id=user.company_id,
+            company_id=resolved_company_id,
             actor_id=user.id,
             action=action,
             entity_type=entity_type,
@@ -56,10 +65,83 @@ def user_payload(user: User) -> dict:
         "department_id": user.department_id,
         "job_title_id": user.job_title_id,
         "access_profile_id": user.access_profile_id,
+        "is_super_admin": bool(user.is_super_admin),
         "roles": roles,
         "permissions": permissions_for(user),
         "last_login_at": user.last_login_at,
     }
+
+
+def company_usage(db: Session, company_id: uuid.UUID) -> dict[str, int]:
+    sub_companies = (
+        db.scalar(
+            select(func.count())
+            .select_from(Branch)
+            .where(Branch.company_id == company_id, Branch.status == "active")
+        )
+        or 0
+    )
+    users = (
+        db.scalar(
+            select(func.count())
+            .select_from(User)
+            .where(User.company_id == company_id, User.status == "active", User.is_super_admin.is_(False))
+        )
+        or 0
+    )
+    travellers = (
+        db.scalar(select(func.count()).select_from(Traveller).where(Traveller.company_id == company_id)) or 0
+    )
+    return {
+        "sub_companies": sub_companies,
+        "users": users,
+        "travellers": travellers,
+    }
+
+
+def company_payload(company: Company, db: Session | None = None) -> dict:
+    payload = {
+        "id": company.id,
+        "legal_name": company.legal_name,
+        "trading_name": company.trading_name,
+        "email": company.email,
+        "phone": company.phone,
+        "address": company.address,
+        "iata_number": company.iata_number,
+        "uic_code": company.uic_code,
+        "business_license": company.business_license,
+        "base_currency": company.base_currency,
+        "timezone": company.timezone,
+        "status": company.status,
+        "max_sub_companies": company.max_sub_companies,
+        "max_users": company.max_users,
+        "max_travellers": company.max_travellers,
+        "usage": None,
+    }
+    if db is not None:
+        payload["usage"] = company_usage(db, company.id)
+    return payload
+
+
+def assert_company_quota(db: Session, company_id: uuid.UUID, kind: QuotaKind) -> None:
+    company = db.get(Company, company_id)
+    if not company:
+        raise conflict("Company was not found.")
+    usage = company_usage(db, company_id)
+    limits = {
+        "sub_companies": company.max_sub_companies,
+        "users": company.max_users,
+        "travellers": company.max_travellers,
+    }
+    labels = {
+        "sub_companies": "sub-companies",
+        "users": "users",
+        "travellers": "traveller profiles",
+    }
+    if usage[kind] >= limits[kind]:
+        raise conflict(
+            f"Company has reached its maximum of {limits[kind]} {labels[kind]}."
+        )
 
 
 def job_title_code(db: Session) -> str:

@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     admin_name: str = "JFK Administrator"
     manager_email: EmailStr = "manager@jfktravel.com"
     manager_password: str = "change-me-manager"
+    super_admin_email: EmailStr = "superadmin@jfktravel.com"
+    super_admin_password: str = "change-me-super-admin"
+    super_admin_name: str = "JFK Super Administrator"
 
     redis_url: str = "redis://localhost:6379/0"
     s3_endpoint: str = "http://localhost:9000"

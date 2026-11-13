@@ -8,6 +8,7 @@ import Modal from "@/components/ui/Modal";
 import { Badge, StatusBadge } from "@/components/ui/Badge";
 import StatusToggle from "@/components/ui/StatusToggle";
 import PageHeader from "@/components/ui/PageHeader";
+import QuotaUsageBanner from "@/components/ui/QuotaUsageBanner";
 import { apiRequest } from "@/api/client";
 import { apiStatus, type ApiPage, type ApiUser } from "@/api/types";
 import { initials } from "@/lib/utils";
@@ -15,6 +16,7 @@ import { PATHS } from "@/routes/paths";
 import type { AppUser, Role } from "@/types";
 
 const roleVariant: Record<Role, "red" | "violet" | "blue" | "amber" | "gray"> = {
+  SuperAdmin: "red",
   Administrator: "red",
   Manager: "violet",
   Agent: "blue",
@@ -138,6 +140,7 @@ export default function UsersPage() {
           </Link>
         }
       />
+      <QuotaUsageBanner kind="users" />
 
       <DataTable
         columns={columns}

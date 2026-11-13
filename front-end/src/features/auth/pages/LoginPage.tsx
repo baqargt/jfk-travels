@@ -33,8 +33,10 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const homePath = user?.isSuperAdmin ? PATHS.platform.companies : PATHS.dashboard;
+
   if (user) {
-    return <Navigate to={from ?? PATHS.dashboard} replace />;
+    return <Navigate to={from ?? homePath} replace />;
   }
 
   const resetTurnstile = () => {
@@ -51,8 +53,11 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      await login(email.trim(), password, turnstileToken || undefined);
-      navigate(from ?? PATHS.dashboard, { replace: true });
+      const signedIn = await login(email.trim(), password, turnstileToken || undefined);
+      navigate(
+        from ?? (signedIn.isSuperAdmin ? PATHS.platform.companies : PATHS.dashboard),
+        { replace: true },
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign-in failed.");
       resetTurnstile();

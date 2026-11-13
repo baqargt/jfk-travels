@@ -3,6 +3,7 @@ import { NAV_GROUPS, type NavChild, type NavGroup, type NavItem } from "@/consta
 
 export type AreaKey =
   | "dashboard"
+  | "platform"
   | "booking"
   | "company"
   | "departments"
@@ -16,6 +17,7 @@ export type AreaKey =
   | "limits";
 
 export const ROLE_AREAS: Record<Role, AreaKey[]> = {
+  SuperAdmin: ["dashboard", "platform"],
   Administrator: [
     "dashboard",
     "booking",
@@ -50,6 +52,7 @@ export const ROLE_AREAS: Record<Role, AreaKey[]> = {
 };
 
 export function areaForPath(path: string): AreaKey {
+  if (path.startsWith("/platform")) return "platform";
   if (path.startsWith("/booking")) return "booking";
   if (path.startsWith("/company")) return "company";
   if (path.startsWith("/departments")) return "departments";

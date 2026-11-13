@@ -7,6 +7,7 @@ import Badge, { StatusBadge } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import PageHeader from "@/components/ui/PageHeader";
+import QuotaUsageBanner from "@/components/ui/QuotaUsageBanner";
 import { apiRequest } from "@/api/client";
 import { apiStatus, type ApiBranch, type ApiPage } from "@/api/types";
 import { fmtDate, fmtMoney } from "@/lib/utils";
@@ -109,6 +110,7 @@ export default function SubCompaniesPage() {
           </Link>
         }
       />
+      <QuotaUsageBanner kind="subCompanies" />
       <DataTable
         columns={columns}
         data={companies}

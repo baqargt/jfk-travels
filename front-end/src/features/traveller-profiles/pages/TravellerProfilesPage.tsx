@@ -7,6 +7,7 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Badge, { StatusBadge } from "@/components/ui/Badge";
 import PageHeader from "@/components/ui/PageHeader";
+import QuotaUsageBanner from "@/components/ui/QuotaUsageBanner";
 import { apiRequest } from "@/api/client";
 import { apiStatus, type ApiPage, type ApiTraveller } from "@/api/types";
 import { fmtDate, fmtMoney, initials } from "@/lib/utils";
@@ -149,6 +150,7 @@ export default function TravellerProfilesPage() {
           </Link>
         }
       />
+      <QuotaUsageBanner kind="travellers" />
 
       <DataTable
         columns={columns}

@@ -137,6 +137,7 @@ def run() -> None:
                 email=settings.admin_email.lower(),
                 display_name=settings.admin_name,
                 password_hash=hash_password(settings.admin_password),
+                is_super_admin=False,
             )
             db.add(admin)
             db.flush()
@@ -162,6 +163,7 @@ def run() -> None:
                     email=settings.manager_email.lower(),
                     display_name="JFK Demo Manager",
                     password_hash=hash_password(settings.manager_password),
+                    is_super_admin=False,
                 )
             )
         elif manager:
@@ -170,10 +172,36 @@ def run() -> None:
             if not manager.access_profile_id:
                 manager.access_profile_id = profiles["Manager"].id
 
+        super_admin = db.scalar(select(User).where(User.email == settings.super_admin_email.lower()))
+        if not super_admin:
+            db.add(
+                User(
+                    company_id=None,
+                    branch_id=None,
+                    department_id=None,
+                    job_title_id=None,
+                    access_profile_id=None,
+                    email=settings.super_admin_email.lower(),
+                    display_name=settings.super_admin_name,
+                    password_hash=hash_password(settings.super_admin_password),
+                    is_super_admin=True,
+                    status="active",
+                )
+            )
+        else:
+            super_admin.is_super_admin = True
+            super_admin.company_id = None
+            super_admin.branch_id = None
+            super_admin.department_id = None
+            super_admin.job_title_id = None
+            super_admin.access_profile_id = None
+            super_admin.display_name = settings.super_admin_name
+
         # Backfill any remaining users missing org links
         orphan_users = db.scalars(
             select(User).where(
                 User.company_id == company.id,
+                User.is_super_admin.is_(False),
                 (User.job_title_id.is_(None)) | (User.access_profile_id.is_(None)),
             )
         ).all()

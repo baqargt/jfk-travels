@@ -12,13 +12,13 @@ from app.dependencies import (
     require_csrf,
     require_permissions,
     require_roles,
+    require_tenant_user,
 )
 from app.errors import ApiError, conflict, forbidden, not_found
 from app.models import (
     AccessProfile,
     Branch,
     Company,
-    Customer,
     Department,
     JobTitle,
     Permission,
@@ -48,7 +48,15 @@ from app.schemas import (
     UserUpdate,
 )
 from app.security import hash_password
-from app.services import audit, department_code, department_user_count, job_title_code, user_payload
+from app.services import (
+    assert_company_quota,
+    audit,
+    company_payload,
+    department_code,
+    department_user_count,
+    job_title_code,
+    user_payload,
+)
 
 router = APIRouter(tags=["Management"])
 write_access = [Depends(require_csrf)]
@@ -145,11 +153,11 @@ def _resolve_permissions(db: Session, keys: list[str]) -> list[Permission]:
 
 
 @router.get("/company", response_model=CompanyOut)
-def get_company(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_company(user: User = Depends(require_tenant_user), db: Session = Depends(get_db)):
     company = db.get(Company, user.company_id)
     if not company:
         raise not_found("Company")
-    return company
+    return company_payload(company, db)
 
 
 @router.patch(
@@ -166,11 +174,17 @@ def update_company(
     company = db.get(Company, user.company_id)
     if not company:
         raise not_found("Company")
-    for key, value in data.model_dump(exclude_unset=True).items():
+    # Tenant admins cannot change platform-managed quotas or status.
+    updates = data.model_dump(
+        exclude_unset=True,
+        exclude={"max_sub_companies", "max_users", "max_travellers", "status"},
+    )
+    for key, value in updates.items():
         setattr(company, key, value.upper() if key == "base_currency" else value)
     audit(db, request, user, "company.update", "company", company.id)
     db.commit()
-    return company
+    db.refresh(company)
+    return company_payload(company, db)
 
 
 @router.get("/supplier-connections")
@@ -252,6 +266,7 @@ def create_branch(
     user: User = Depends(require_roles("Administrator")),
     db: Session = Depends(get_db),
 ):
+    assert_company_quota(db, user.company_id, "sub_companies")
     branch = Branch(company_id=user.company_id, **data.model_dump())
     db.add(branch)
     audit(db, request, user, "branch.create", "branch", branch.id)
@@ -758,6 +773,7 @@ def create_user(
     actor: User = Depends(require_roles("Administrator")),
     db: Session = Depends(get_db),
 ):
+    assert_company_quota(db, actor.company_id, "users")
     _validate_user_org_links(
         db,
         actor.company_id,

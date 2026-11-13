@@ -11,7 +11,7 @@ from sqlalchemy import text
 from app.config import settings
 from app.database import engine
 from app.errors import ApiError
-from app.routers import auth, management, operations, records, workflows
+from app.routers import auth, management, operations, platform, records, workflows
 from app.storage import s3_client
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -139,5 +139,12 @@ def readiness():
     return {"status": "ok", "checks": checks}
 
 
-for api_router in (auth.router, management.router, records.router, workflows.router, operations.router):
+for api_router in (
+    auth.router,
+    management.router,
+    platform.router,
+    records.router,
+    workflows.router,
+    operations.router,
+):
     app.include_router(api_router, prefix=settings.api_prefix)

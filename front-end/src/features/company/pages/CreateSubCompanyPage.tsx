@@ -142,6 +142,7 @@ export default function CreateSubCompanyPage() {
         });
       }
       await queryClient.invalidateQueries({ queryKey: ["branches"] });
+      await queryClient.invalidateQueries({ queryKey: ["company"] });
       navigate(PATHS.company.subCompanies, { replace: true });
     } catch (reason) {
       setError(

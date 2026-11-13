@@ -6,7 +6,7 @@ import type { AuthUser, Role } from "@/types";
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string, turnstileToken?: string) => Promise<void>;
+  login: (email: string, password: string, turnstileToken?: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
   updateProfile: (name: string, email: string) => Promise<void>;
 }
@@ -15,15 +15,17 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 function mapUser(value: ApiUser): AuthUser {
   const roles = value.roles.length ? value.roles : (["Agent"] as Role[]);
+  const role = value.isSuperAdmin ? ("SuperAdmin" as Role) : roles[0];
   return {
     id: value.id,
     name: value.name,
     email: value.email,
-    role: roles[0],
-    roles,
+    role,
+    roles: value.isSuperAdmin ? (["SuperAdmin", ...roles] as Role[]) : roles,
     permissions: value.permissions,
     companyId: value.companyId,
     branchId: value.branchId,
+    isSuperAdmin: Boolean(value.isSuperAdmin),
   };
 }
 
@@ -50,7 +52,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       retryAuth: false,
     });
-    setUser(mapUser(value));
+    const mapped = mapUser(value);
+    setUser(mapped);
+    return mapped;
   }, []);
 
   const logout = useCallback(async () => {

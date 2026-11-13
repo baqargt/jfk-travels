@@ -13,6 +13,7 @@ import { PATHS } from "@/routes/paths";
 import type { Role } from "@/types";
 
 const roleVariant: Record<Role, "red" | "violet" | "blue" | "amber" | "gray"> = {
+  SuperAdmin: "red",
   Administrator: "red",
   Manager: "violet",
   Agent: "blue",

@@ -1,6 +1,11 @@
 export const PATHS = {
   login: "/login",
   dashboard: "/dashboard",
+  platform: {
+    companies: "/platform/companies",
+    createCompany: "/platform/companies/new",
+    companyDetail: (companyId: string) => `/platform/companies/${companyId}`,
+  },
   account: {
     profile: "/account/profile",
     password: "/account/password",

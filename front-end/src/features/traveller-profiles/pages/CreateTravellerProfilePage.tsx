@@ -111,6 +111,7 @@ export default function CreateTravellerProfilePage() {
         await apiRequest("/travellers", { method: "POST", body });
       }
       await queryClient.invalidateQueries({ queryKey: ["travellers"] });
+      await queryClient.invalidateQueries({ queryKey: ["company"] });
       navigate(PATHS.travellerProfiles, { replace: true });
     } catch (reason) {
       setError(

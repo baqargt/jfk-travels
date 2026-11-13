@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Car, CreditCard, FileText, Hotel, Plane, ShieldCheck } from "lucide-react";
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
@@ -8,6 +8,7 @@ import PageHeader, { Card } from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
 import { apiRequest } from "@/api/client";
 import type { ApiPage, DashboardSummary, FinancialAccount } from "@/api/types";
+import { useAuth } from "@/context/AuthContext";
 import { fmtDate, fmtMoney, pct } from "@/lib/utils";
 import { PATHS } from "@/routes/paths";
 
@@ -29,9 +30,26 @@ const columns: Column<RecentBooking>[] = [
 ];
 
 export default function DashboardPage() {
-  const { data: summary } = useQuery({ queryKey: ["dashboard-summary"], queryFn: () => apiRequest<DashboardSummary>("/dashboard/summary") });
-  const { data: accounts = [] } = useQuery({ queryKey: ["financial-accounts"], queryFn: () => apiRequest<FinancialAccount[]>("/financial-accounts") });
-  const { data: recent } = useQuery({ queryKey: ["dashboard-bookings"], queryFn: () => apiRequest<ApiPage<RecentBooking>>("/reports/dsr?page_size=8") });
+  const { user } = useAuth();
+  const { data: summary } = useQuery({
+    queryKey: ["dashboard-summary"],
+    queryFn: () => apiRequest<DashboardSummary>("/dashboard/summary"),
+    enabled: !user?.isSuperAdmin,
+  });
+  const { data: accounts = [] } = useQuery({
+    queryKey: ["financial-accounts"],
+    queryFn: () => apiRequest<FinancialAccount[]>("/financial-accounts"),
+    enabled: !user?.isSuperAdmin,
+  });
+  const { data: recent } = useQuery({
+    queryKey: ["dashboard-bookings"],
+    queryFn: () => apiRequest<ApiPage<RecentBooking>>("/reports/dsr?page_size=8"),
+    enabled: !user?.isSuperAdmin,
+  });
+
+  if (user?.isSuperAdmin) {
+    return <Navigate to={PATHS.platform.companies} replace />;
+  }
   const cash = accounts.filter((item) => item.accountType === "cash");
   const credit = accounts.filter((item) => item.accountType === "credit");
   const cashTotal = cash.reduce((sum, item) => sum + Number(item.limitAmount), 0);

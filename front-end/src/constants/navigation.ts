@@ -52,6 +52,19 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    title: "Platform",
+    items: [
+      {
+        label: "Companies",
+        icon: Building2,
+        children: [
+          { label: "All Companies", icon: Building2, path: PATHS.platform.companies },
+          { label: "Create Company", icon: UserPlus, path: PATHS.platform.createCompany },
+        ],
+      },
+    ],
+  },
+  {
     title: "Travel Engine",
     items: [
       {

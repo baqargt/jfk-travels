@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     Numeric,
     String,
     Table,
@@ -105,6 +106,9 @@ class Company(TimestampMixin, Base):
     base_currency: Mapped[str] = mapped_column(String(3), default="USD")
     timezone: Mapped[str] = mapped_column(String(60), default="UTC")
     status: Mapped[str] = mapped_column(String(20), default="active")
+    max_sub_companies: Mapped[int] = mapped_column(Integer, default=5)
+    max_users: Mapped[int] = mapped_column(Integer, default=50)
+    max_travellers: Mapped[int] = mapped_column(Integer, default=500)
 
 
 class SupplierConnection(TimestampMixin, Base):
@@ -200,7 +204,9 @@ class User(TimestampMixin, Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = uuid_pk()
-    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"), index=True)
+    company_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), index=True, nullable=True
+    )
     branch_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("branches.id", ondelete="SET NULL"))
     department_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("departments.id", ondelete="SET NULL"))
     job_title_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("job_titles.id", ondelete="SET NULL"))
@@ -211,6 +217,7 @@ class User(TimestampMixin, Base):
     display_name: Mapped[str] = mapped_column(String(180))
     password_hash: Mapped[str] = mapped_column(String(255))
     status: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    is_super_admin: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     roles: Mapped[list[Role]] = relationship(secondary=user_roles, lazy="selectin")
     access_profile: Mapped[AccessProfile | None] = relationship(lazy="selectin")

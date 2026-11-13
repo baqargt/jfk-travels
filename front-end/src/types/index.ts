@@ -1,4 +1,4 @@
-export type Role = "Administrator" | "Manager" | "Agent" | "Accounts" | "Sub Agent";
+export type Role = "SuperAdmin" | "Administrator" | "Manager" | "Agent" | "Accounts" | "Sub Agent";
 
 export type AccountStatus = "Active" | "Inactive" | "Suspended";
 
@@ -9,8 +9,9 @@ export interface AuthUser {
   role: Role;
   roles: Role[];
   permissions: string[];
-  companyId: string;
+  companyId: string | null;
   branchId: string | null;
+  isSuperAdmin: boolean;
 }
 
 export interface AppUser {

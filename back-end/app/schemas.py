@@ -35,11 +35,12 @@ class UserOut(ApiModel):
     email: EmailStr
     name: str
     status: str
-    company_id: uuid.UUID
+    company_id: uuid.UUID | None = None
     branch_id: uuid.UUID | None = None
     department_id: uuid.UUID | None = None
     job_title_id: uuid.UUID | None = None
     access_profile_id: uuid.UUID | None = None
+    is_super_admin: bool = False
     roles: list[str]
     permissions: list[str]
     last_login_at: datetime | None = None
@@ -55,6 +56,12 @@ class PasswordChangeInput(ApiModel):
     new_password: str = Field(min_length=10, max_length=128)
 
 
+class CompanyUsageOut(ApiModel):
+    sub_companies: int = 0
+    users: int = 0
+    travellers: int = 0
+
+
 class CompanyOut(ApiModel):
     id: uuid.UUID
     legal_name: str
@@ -68,6 +75,10 @@ class CompanyOut(ApiModel):
     base_currency: str
     timezone: str
     status: str
+    max_sub_companies: int = 5
+    max_users: int = 50
+    max_travellers: int = 500
+    usage: CompanyUsageOut | None = None
 
 
 class CompanyUpdate(ApiModel):
@@ -81,6 +92,29 @@ class CompanyUpdate(ApiModel):
     business_license: str | None = Field(default=None, max_length=120)
     base_currency: str | None = Field(default=None, min_length=3, max_length=3)
     timezone: str | None = Field(default=None, max_length=60)
+    status: str | None = Field(default=None, pattern="^(active|inactive|suspended)$")
+    max_sub_companies: int | None = Field(default=None, ge=0, le=10000)
+    max_users: int | None = Field(default=None, ge=0, le=100000)
+    max_travellers: int | None = Field(default=None, ge=0, le=1000000)
+
+
+class PlatformCompanyCreate(ApiModel):
+    legal_name: str = Field(min_length=2, max_length=180)
+    trading_name: str = Field(min_length=2, max_length=180)
+    email: EmailStr
+    phone: str = Field(default="", max_length=40)
+    address: str = Field(default="", max_length=1000)
+    iata_number: str = Field(default="", max_length=60)
+    uic_code: str = Field(default="", max_length=60)
+    business_license: str = Field(default="", max_length=120)
+    base_currency: str = Field(default="USD", min_length=3, max_length=3)
+    timezone: str = Field(default="UTC", max_length=60)
+    max_sub_companies: int = Field(default=5, ge=1, le=10000)
+    max_users: int = Field(default=50, ge=1, le=100000)
+    max_travellers: int = Field(default=500, ge=1, le=1000000)
+    admin_name: str = Field(min_length=2, max_length=180)
+    admin_email: EmailStr
+    admin_password: str = Field(min_length=10, max_length=128)
 
 
 class BranchInput(ApiModel):

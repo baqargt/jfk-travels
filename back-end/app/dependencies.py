@@ -52,6 +52,8 @@ def require_csrf(
 
 def role_names_for(user: User) -> set[str]:
     """Compatibility role names from Access Profile (preset/name) with legacy user_roles fallback."""
+    if user.is_super_admin:
+        return {"SuperAdmin"}
     names: set[str] = set()
     if user.access_profile is not None:
         if user.access_profile.preset_key:
@@ -62,6 +64,8 @@ def role_names_for(user: User) -> set[str]:
 
 
 def permissions_for(user: User) -> list[str]:
+    if user.is_super_admin:
+        return []
     if user.access_profile is not None:
         return sorted({permission.key for permission in user.access_profile.permissions})
     return sorted({permission.key for role in user.roles for permission in role.permissions})
@@ -69,6 +73,8 @@ def permissions_for(user: User) -> list[str]:
 
 def require_roles(*roles: str) -> Callable:
     def dependency(user: User = Depends(get_current_user)) -> User:
+        if user.is_super_admin:
+            raise forbidden("Platform administrators must use platform APIs.")
         if not role_names_for(user).intersection(roles):
             raise forbidden()
         return user
@@ -78,6 +84,8 @@ def require_roles(*roles: str) -> Callable:
 
 def require_permissions(*keys: str) -> Callable:
     def dependency(user: User = Depends(get_current_user)) -> User:
+        if user.is_super_admin:
+            raise forbidden("Platform administrators must use platform APIs.")
         granted = set(permissions_for(user))
         if not set(keys).issubset(granted):
             raise forbidden()
@@ -86,8 +94,22 @@ def require_permissions(*keys: str) -> Callable:
     return dependency
 
 
+def require_super_admin(user: User = Depends(get_current_user)) -> User:
+    if not user.is_super_admin:
+        raise forbidden("Super administrator access is required.")
+    return user
+
+
+def require_tenant_user(user: User = Depends(get_current_user)) -> User:
+    if user.is_super_admin or user.company_id is None:
+        raise forbidden("A company-scoped account is required.")
+    return user
+
+
 def branch_scope(column, user: User):
     """Scope branch-owned rows; HQ administrators retain company-wide visibility."""
+    if user.is_super_admin:
+        return true()
     if user.branch_id is None or "Administrator" in role_names_for(user):
         return true()
     return or_(column == user.branch_id, column.is_(None))

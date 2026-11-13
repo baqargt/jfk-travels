@@ -12,14 +12,21 @@ export interface ApiUser {
   email: string;
   name: string;
   status: string;
-  companyId: string;
+  companyId: string | null;
   branchId: string | null;
   departmentId: string | null;
   jobTitleId: string | null;
   accessProfileId: string | null;
+  isSuperAdmin: boolean;
   roles: Role[];
   permissions: string[];
   lastLoginAt: string | null;
+}
+
+export interface ApiCompanyUsage {
+  subCompanies: number;
+  users: number;
+  travellers: number;
 }
 
 export interface ApiJobTitle {
@@ -80,6 +87,10 @@ export interface ApiCompany {
   baseCurrency: string;
   timezone: string;
   status: string;
+  maxSubCompanies: number;
+  maxUsers: number;
+  maxTravellers: number;
+  usage?: ApiCompanyUsage | null;
 }
 
 export interface SupplierConnection {

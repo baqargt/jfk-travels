@@ -23,6 +23,9 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to={PATHS.dashboard} replace /> },
       { path: "dashboard", lazy: page(() => import("@/features/dashboard/pages/DashboardPage")) },
+      { path: "platform/companies", lazy: page(() => import("@/features/platform/pages/PlatformCompaniesPage")) },
+      { path: "platform/companies/new", lazy: page(() => import("@/features/platform/pages/CreatePlatformCompanyPage")) },
+      { path: "platform/companies/:companyId", lazy: page(() => import("@/features/platform/pages/PlatformCompanyDetailPage")) },
       { path: "account/profile", lazy: page(() => import("@/features/account/pages/ProfileSettingsPage")) },
       { path: "account/password", lazy: page(() => import("@/features/account/pages/ChangePasswordPage")) },
       { path: "booking", element: <Navigate to={PATHS.booking.flights} replace /> },
