@@ -21,7 +21,12 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
   }
 
   if (!canAccess(user.role, location.pathname)) {
-    return <Navigate to={PATHS.dashboard} replace />;
+    return (
+      <Navigate
+        to={user.isSuperAdmin ? PATHS.platform.companies : PATHS.dashboard}
+        replace
+      />
+    );
   }
 
   return <>{children}</>;

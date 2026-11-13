@@ -25,6 +25,7 @@ const router = createBrowserRouter([
       { path: "dashboard", lazy: page(() => import("@/features/dashboard/pages/DashboardPage")) },
       { path: "platform/companies", lazy: page(() => import("@/features/platform/pages/PlatformCompaniesPage")) },
       { path: "platform/companies/new", lazy: page(() => import("@/features/platform/pages/CreatePlatformCompanyPage")) },
+      { path: "platform/companies/:companyId/edit", lazy: page(() => import("@/features/platform/pages/EditPlatformCompanyPage")) },
       { path: "platform/companies/:companyId", lazy: page(() => import("@/features/platform/pages/PlatformCompanyDetailPage")) },
       { path: "account/profile", lazy: page(() => import("@/features/account/pages/ProfileSettingsPage")) },
       { path: "account/password", lazy: page(() => import("@/features/account/pages/ChangePasswordPage")) },

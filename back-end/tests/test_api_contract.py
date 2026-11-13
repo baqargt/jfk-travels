@@ -35,6 +35,9 @@ def test_openapi_contains_public_contract() -> None:
         "/api/v1/platform/companies/{company_id}/users",
         "/api/v1/platform/companies/{company_id}/travellers",
         "/api/v1/platform/companies/{company_id}/branches",
+        "/api/v1/platform/companies/{company_id}/dashboard/summary",
+        "/api/v1/platform/companies/{company_id}/financial-accounts",
+        "/api/v1/platform/companies/{company_id}/reports/dsr",
     }
     assert expected.issubset(paths)
 

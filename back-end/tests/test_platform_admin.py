@@ -4,9 +4,11 @@ import uuid
 from unittest.mock import MagicMock, patch
 
 import pytest
+from fastapi.testclient import TestClient
 
 from app.dependencies import permissions_for, role_names_for
 from app.errors import ApiError
+from app.main import app
 from app.models import Company, User
 from app.services import assert_company_quota, company_payload
 
@@ -94,7 +96,22 @@ def test_company_payload_includes_quotas_and_usage() -> None:
         return_value={"sub_companies": 1, "users": 5, "travellers": 9},
     ):
         payload = company_payload(company, db)
-    assert payload["max_sub_companies"] == 4
-    assert payload["max_users"] == 20
-    assert payload["max_travellers"] == 200
-    assert payload["usage"] == {"sub_companies": 1, "users": 5, "travellers": 9}
+    assert payload["tradingName"] == "Acme Travel"
+    assert payload["legalName"] == "Acme Travel LLC"
+    assert payload["maxSubCompanies"] == 4
+    assert payload["maxUsers"] == 20
+    assert payload["maxTravellers"] == 200
+    assert payload["usage"] == {"subCompanies": 1, "users": 5, "travellers": 9}
+
+
+def test_platform_dashboard_endpoints_require_auth() -> None:
+    client = TestClient(app)
+    company_id = uuid.uuid4()
+    paths = [
+        f"/api/v1/platform/companies/{company_id}/dashboard/summary",
+        f"/api/v1/platform/companies/{company_id}/financial-accounts",
+        f"/api/v1/platform/companies/{company_id}/reports/dsr",
+    ]
+    for path in paths:
+        response = client.get(path)
+        assert response.status_code == 401, path

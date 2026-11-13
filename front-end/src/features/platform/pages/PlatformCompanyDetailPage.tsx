@@ -1,11 +1,10 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, Pencil } from "lucide-react";
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
 import Badge, { StatusBadge } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import { FormField, Input, Select } from "@/components/ui/Input";
 import PageHeader, { Card } from "@/components/ui/PageHeader";
 import { apiRequest } from "@/api/client";
 import {
@@ -36,29 +35,11 @@ function usageChip(label: string, used: number | undefined, max: number) {
 
 export default function PlatformCompanyDetailPage() {
   const { companyId = "" } = useParams<{ companyId: string }>();
-  const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabKey>("overview");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [limits, setLimits] = useState({
-    maxSubCompanies: "",
-    maxUsers: "",
-    maxTravellers: "",
-    status: "active",
-  });
 
   const companyQuery = useQuery({
     queryKey: ["platform-companies", companyId],
-    queryFn: async () => {
-      const company = await apiRequest<ApiCompany>(`/platform/companies/${companyId}`);
-      setLimits({
-        maxSubCompanies: String(company.maxSubCompanies),
-        maxUsers: String(company.maxUsers),
-        maxTravellers: String(company.maxTravellers),
-        status: company.status,
-      });
-      return company;
-    },
+    queryFn: () => apiRequest<ApiCompany>(`/platform/companies/${companyId}`),
     enabled: Boolean(companyId),
   });
 
@@ -84,16 +65,22 @@ export default function PlatformCompanyDetailPage() {
   const company = companyQuery.data;
 
   const branchColumns: Column<ApiBranch>[] = [
-    { key: "name", header: "Sub Company", render: (row) => (
-      <div>
-        <p className="font-semibold text-slate-900">{row.name}</p>
-        <p className="font-mono text-[11px] text-slate-400">{row.code}</p>
-      </div>
-    ) },
+    {
+      key: "name",
+      header: "Sub Company",
+      render: (row) => (
+        <div>
+          <p className="font-semibold text-slate-900">{row.name}</p>
+          <p className="font-mono text-[11px] text-slate-400">{row.code}</p>
+        </div>
+      ),
+    },
     {
       key: "branchType",
       header: "Type",
-      render: (row) => <Badge variant={row.branchType === "Branch" ? "blue" : "violet"}>{row.branchType}</Badge>,
+      render: (row) => (
+        <Badge variant={row.branchType === "Branch" ? "blue" : "violet"}>{row.branchType}</Badge>
+      ),
     },
     { key: "location", header: "Location" },
     { key: "managerName", header: "Manager" },
@@ -102,7 +89,11 @@ export default function PlatformCompanyDetailPage() {
   ];
 
   const userColumns: Column<ApiUser>[] = [
-    { key: "name", header: "Name", render: (row) => <span className="font-semibold text-slate-900">{row.name}</span> },
+    {
+      key: "name",
+      header: "Name",
+      render: (row) => <span className="font-semibold text-slate-900">{row.name}</span>,
+    },
     { key: "email", header: "Email" },
     {
       key: "roles",
@@ -134,29 +125,6 @@ export default function PlatformCompanyDetailPage() {
     { key: "status", header: "Status", render: (row) => <StatusBadge status={apiStatus(row.status)} /> },
   ];
 
-  const handleSaveLimits = async (e: FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setError("");
-    try {
-      await apiRequest(`/platform/companies/${companyId}`, {
-        method: "PATCH",
-        body: {
-          maxSubCompanies: Number(limits.maxSubCompanies),
-          maxUsers: Number(limits.maxUsers),
-          maxTravellers: Number(limits.maxTravellers),
-          status: limits.status,
-        },
-      });
-      await queryClient.invalidateQueries({ queryKey: ["platform-companies", companyId] });
-      await queryClient.invalidateQueries({ queryKey: ["platform-companies"] });
-      setSaving(false);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Limits could not be updated.");
-      setSaving(false);
-    }
-  };
-
   const tabs: Array<{ key: TabKey; label: string }> = [
     { key: "overview", label: "Overview" },
     { key: "branches", label: "Sub Companies" },
@@ -170,12 +138,22 @@ export default function PlatformCompanyDetailPage() {
         title={company?.tradingName ?? "Company"}
         description={company ? company.legalName : "Loading company details..."}
         actions={
-          <Link to={PATHS.platform.companies}>
-            <Button variant="secondary">
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link to={PATHS.platform.companies}>
+              <Button variant="secondary">
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+            </Link>
+            {companyId && (
+              <Link to={PATHS.platform.companyEdit(companyId)}>
+                <Button>
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </Button>
+              </Link>
+            )}
+          </div>
         }
       />
 
@@ -218,6 +196,8 @@ export default function PlatformCompanyDetailPage() {
               <Card title="Company Details">
                 <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {[
+                    ["Legal name", company.legalName],
+                    ["Trading name", company.tradingName],
                     ["Email", company.email],
                     ["Phone", company.phone || "—"],
                     ["Currency", company.baseCurrency],
@@ -239,52 +219,24 @@ export default function PlatformCompanyDetailPage() {
               </Card>
 
               <Card title="Quotas & Status">
-                <form onSubmit={handleSaveLimits} className="space-y-4">
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <FormField label="Max Sub Companies">
-                      <Input
-                        type="number"
-                        min={0}
-                        value={limits.maxSubCompanies}
-                        onChange={(e) =>
-                          setLimits((current) => ({ ...current, maxSubCompanies: e.target.value }))
-                        }
-                      />
-                    </FormField>
-                    <FormField label="Max Users">
-                      <Input
-                        type="number"
-                        min={0}
-                        value={limits.maxUsers}
-                        onChange={(e) => setLimits((current) => ({ ...current, maxUsers: e.target.value }))}
-                      />
-                    </FormField>
-                    <FormField label="Max Travellers">
-                      <Input
-                        type="number"
-                        min={0}
-                        value={limits.maxTravellers}
-                        onChange={(e) =>
-                          setLimits((current) => ({ ...current, maxTravellers: e.target.value }))
-                        }
-                      />
-                    </FormField>
-                  </div>
-                  <FormField label="Status">
-                    <Select
-                      value={limits.status}
-                      onChange={(e) => setLimits((current) => ({ ...current, status: e.target.value }))}
-                    >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                      <option value="suspended">Suspended</option>
-                    </Select>
-                  </FormField>
-                  {error && <p className="text-sm text-rose-600">{error}</p>}
-                  <Button type="submit" disabled={saving}>
-                    {saving ? "Saving..." : "Save Limits"}
-                  </Button>
-                </form>
+                <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {[
+                    ["Max sub companies", String(company.maxSubCompanies)],
+                    ["Max users", String(company.maxUsers)],
+                    ["Max travellers", String(company.maxTravellers)],
+                    ["Status", company.status],
+                    ["Sub companies used", String(company.usage?.subCompanies ?? 0)],
+                    ["Users used", String(company.usage?.users ?? 0)],
+                    ["Travellers used", String(company.usage?.travellers ?? 0)],
+                  ].map(([label, value]) => (
+                    <div key={label}>
+                      <dt className="text-[11px] font-medium tracking-wide text-slate-400 uppercase">
+                        {label}
+                      </dt>
+                      <dd className="mt-0.5 text-sm font-semibold text-slate-800">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
               </Card>
             </div>
           )}

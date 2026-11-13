@@ -11,7 +11,18 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import require_csrf, require_super_admin
 from app.errors import conflict, not_found
-from app.models import Branch, Company, Department, Permission, Traveller, User
+from app.models import (
+    Booking,
+    Branch,
+    Company,
+    Customer,
+    Department,
+    FinancialAccount,
+    Permission,
+    Refund,
+    Traveller,
+    User,
+)
 from app.schemas import (
     BranchOut,
     CompanyOut,
@@ -319,6 +330,118 @@ def list_company_branches(
     return {
         "items": items,
         "total": db.scalar(count) or 0,
+        "page": page,
+        "page_size": page_size,
+    }
+
+
+@router.get(
+    "/companies/{company_id}/dashboard/summary",
+    dependencies=[Depends(require_super_admin)],
+)
+def company_dashboard_summary(company_id: uuid.UUID, db: Session = Depends(get_db)):
+    company = _load_company(db, company_id)
+    booking_stats = db.execute(
+        select(
+            func.count(Booking.id),
+            func.coalesce(func.sum(Booking.total_amount), 0),
+        ).where(Booking.company_id == company_id)
+    ).one()
+    pending_refunds = (
+        db.scalar(
+            select(func.count())
+            .select_from(Refund)
+            .join(Booking, Booking.id == Refund.booking_id)
+            .where(Booking.company_id == company_id, Refund.status == "pending")
+        )
+        or 0
+    )
+    accounts = db.execute(
+        select(
+            func.coalesce(func.sum(FinancialAccount.balance), 0),
+            func.coalesce(func.sum(FinancialAccount.limit_amount), 0),
+        ).where(FinancialAccount.company_id == company_id)
+    ).one()
+    return {
+        "customers": db.scalar(
+            select(func.count()).select_from(Customer).where(Customer.company_id == company_id)
+        )
+        or 0,
+        "travellers": db.scalar(
+            select(func.count()).select_from(Traveller).where(Traveller.company_id == company_id)
+        )
+        or 0,
+        "bookings": booking_stats[0],
+        "grossSales": booking_stats[1],
+        "refundsPending": pending_refunds,
+        "availableBalance": accounts[0],
+        "creditLimit": accounts[1],
+        "currency": company.base_currency,
+    }
+
+
+@router.get(
+    "/companies/{company_id}/financial-accounts",
+    dependencies=[Depends(require_super_admin)],
+)
+def company_financial_accounts(company_id: uuid.UUID, db: Session = Depends(get_db)):
+    _load_company(db, company_id)
+    rows = db.scalars(
+        select(FinancialAccount)
+        .where(FinancialAccount.company_id == company_id)
+        .order_by(FinancialAccount.account_type, FinancialAccount.currency)
+    ).all()
+    return [
+        {
+            "id": row.id,
+            "branchId": row.branch_id,
+            "accountType": row.account_type,
+            "currency": row.currency,
+            "limitAmount": row.limit_amount,
+            "balance": row.balance,
+            "status": row.status,
+        }
+        for row in rows
+    ]
+
+
+@router.get(
+    "/companies/{company_id}/reports/dsr",
+    response_model=Page,
+    dependencies=[Depends(require_super_admin)],
+)
+def company_dsr_report(
+    company_id: uuid.UUID,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    company = _load_company(db, company_id)
+    from app.routers.operations import _base_amount
+
+    query = select(Booking).where(Booking.company_id == company_id)
+    count_query = select(func.count()).select_from(Booking).where(Booking.company_id == company_id)
+    rows = db.scalars(
+        query.order_by(Booking.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+    ).all()
+    items = [
+        {
+            "id": row.id,
+            "reference": row.reference,
+            "service": row.service_type,
+            "amount": row.total_amount,
+            "currency": row.currency,
+            "baseAmount": _base_amount(db, company, row.currency, row.total_amount, row.created_at),
+            "baseCurrency": company.base_currency,
+            "status": row.status,
+            "date": row.created_at,
+            "supplierReference": row.supplier_reference,
+        }
+        for row in rows
+    ]
+    return {
+        "items": items,
+        "total": db.scalar(count_query) or 0,
         "page": page,
         "page_size": page_size,
     }

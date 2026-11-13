@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Eye, Plus } from "lucide-react";
+import { Eye, FileText, Pencil, Plus } from "lucide-react";
 import DataTable, { type Column } from "@/components/DataTable/DataTable";
 import { StatusBadge } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -58,11 +58,23 @@ export default function PlatformCompaniesPage() {
       headerClassName: "!text-right",
       className: "!text-right",
       render: (row) => (
-        <Link to={PATHS.platform.companyDetail(row.id)} title="View company">
-          <Button variant="ghost" size="icon" className="!h-8 !w-8 text-slate-400 hover:text-brand-600">
-            <Eye className="h-4 w-4" />
-          </Button>
-        </Link>
+        <div className="flex justify-end gap-1">
+          <Link to={`${PATHS.dashboard}?companyId=${row.id}`} title="Dashboard report">
+            <Button variant="ghost" size="icon" className="!h-8 !w-8 text-slate-400 hover:text-brand-600">
+              <FileText className="h-4 w-4" />
+            </Button>
+          </Link>
+          <Link to={PATHS.platform.companyDetail(row.id)} title="View company">
+            <Button variant="ghost" size="icon" className="!h-8 !w-8 text-slate-400 hover:text-brand-600">
+              <Eye className="h-4 w-4" />
+            </Button>
+          </Link>
+          <Link to={PATHS.platform.companyEdit(row.id)} title="Edit company">
+            <Button variant="ghost" size="icon" className="!h-8 !w-8 text-slate-400 hover:text-brand-600">
+              <Pencil className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
       ),
     },
   ];

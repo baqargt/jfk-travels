@@ -100,27 +100,28 @@ def company_usage(db: Session, company_id: uuid.UUID) -> dict[str, int]:
 
 
 def company_payload(company: Company, db: Session | None = None) -> dict:
+    """Serialize company for API responses using camelCase aliases for the frontend."""
+    from app.schemas import CompanyOut
+
     payload = {
         "id": company.id,
         "legal_name": company.legal_name,
         "trading_name": company.trading_name,
         "email": company.email,
-        "phone": company.phone,
-        "address": company.address,
-        "iata_number": company.iata_number,
-        "uic_code": company.uic_code,
-        "business_license": company.business_license,
-        "base_currency": company.base_currency,
-        "timezone": company.timezone,
-        "status": company.status,
-        "max_sub_companies": company.max_sub_companies,
-        "max_users": company.max_users,
-        "max_travellers": company.max_travellers,
-        "usage": None,
+        "phone": company.phone or "",
+        "address": company.address or "",
+        "iata_number": company.iata_number or "",
+        "uic_code": company.uic_code or "",
+        "business_license": company.business_license or "",
+        "base_currency": company.base_currency or "USD",
+        "timezone": company.timezone or "UTC",
+        "status": company.status or "active",
+        "max_sub_companies": company.max_sub_companies if company.max_sub_companies is not None else 5,
+        "max_users": company.max_users if company.max_users is not None else 50,
+        "max_travellers": company.max_travellers if company.max_travellers is not None else 500,
+        "usage": company_usage(db, company.id) if db is not None else None,
     }
-    if db is not None:
-        payload["usage"] = company_usage(db, company.id)
-    return payload
+    return CompanyOut.model_validate(payload).model_dump(by_alias=True, mode="json")
 
 
 def assert_company_quota(db: Session, company_id: uuid.UUID, kind: QuotaKind) -> None:

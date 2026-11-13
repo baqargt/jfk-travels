@@ -5,6 +5,7 @@ export const PATHS = {
     companies: "/platform/companies",
     createCompany: "/platform/companies/new",
     companyDetail: (companyId: string) => `/platform/companies/${companyId}`,
+    companyEdit: (companyId: string) => `/platform/companies/${companyId}/edit`,
   },
   account: {
     profile: "/account/profile",
